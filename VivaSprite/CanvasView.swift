@@ -182,6 +182,30 @@ class CanvasView: NSView {
         let offsetX = (gridSize - targetWidth) / 2
         let offsetY = (gridSize - targetHeight) / 2
         
+        // Create a new NSImage from the bitmap rep with interpolation disabled
+        let image = NSImage(size: NSSize(width: sourceWidth, height: sourceHeight))
+        image.addRepresentation(sourceRep)
+        
+        // Create a new bitmap rep for the exact pixel-by-pixel sampling
+        guard let exactRep = NSBitmapImageRep(bitmapDataPlanes: nil, 
+                                             pixelsWide: sourceWidth, 
+                                             pixelsHigh: sourceHeight, 
+                                             bitsPerSample: 8, 
+                                             samplesPerPixel: 4, 
+                                             hasAlpha: true, 
+                                             isPlanar: false, 
+                                             colorSpaceName: .deviceRGB, 
+                                             bytesPerRow: 0, 
+                                             bitsPerPixel: 0) else { return }
+        
+        // Draw the image to the exact rep with interpolation disabled
+        NSGraphicsContext.saveGraphicsState()
+        guard let context = NSGraphicsContext(bitmapImageRep: exactRep) else { return }
+        NSGraphicsContext.current = context
+        context.cgContext.interpolationQuality = .none
+        image.draw(in: NSRect(x: 0, y: 0, width: sourceWidth, height: sourceHeight))
+        NSGraphicsContext.restoreGraphicsState()
+        
         // Sample pixels from source and place in our grid
         for row in 0..<gridSize {
             for col in 0..<gridSize {
@@ -197,12 +221,13 @@ class CanvasView: NSView {
                 
                 // Ensure source coordinates are within bounds
                 if sourceX >= 0 && sourceX < sourceWidth && sourceY >= 0 && sourceY < sourceHeight {
-                    // Get color from source (handle coordinate system differences)
-                    guard let color = sourceRep.colorAt(x: sourceX, y: sourceY) else { continue }
+                    // Get color from our exact representation
+                    guard let color = exactRep.colorAt(x: sourceX, y: sourceY) else { continue }
                     
-                    // Only set non-white/non-transparent pixels
-                    if color.alphaComponent > 0.1 && color != NSColor.white {
-                        pixels[row][col] = color.withAlphaComponent(1.0) // Strip alpha
+                    // Only set non-transparent pixels
+                    if color.alphaComponent > 0.5 {
+                        // Use full alpha for non-transparent pixels
+                        pixels[row][col] = color.withAlphaComponent(1.0)
                     }
                 }
             }
@@ -216,38 +241,35 @@ class CanvasView: NSView {
     }
     
     func saveImage(to url: URL) {
-        // Create a new image with the exact grid size
-        let image = NSImage(size: NSSize(width: gridSize, height: gridSize))
+        // Create bitmap representation with exact pixel dimensions
+        guard let bitmapRep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: gridSize, pixelsHigh: gridSize, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
         
-        // Lock focus to draw on the image
-        image.lockFocus()
+        // Set up graphics context with the bitmap rep
+        NSGraphicsContext.saveGraphicsState()
+        guard let context = NSGraphicsContext(bitmapImageRep: bitmapRep) else { return }
+        NSGraphicsContext.current = context
+        
+        // Disable image interpolation to prevent blurring
+        context.cgContext.interpolationQuality = .none
         
         // Fill with white background
         NSColor.white.setFill()
         NSRect(x: 0, y: 0, width: gridSize, height: gridSize).fill()
         
-        // Draw each pixel
+        // Draw each pixel directly to the bitmap rep
         for row in 0..<gridSize {
             for col in 0..<gridSize {
                 if let color = pixels[row][col] {
-                    color.setFill()
+                    // Ensure color has full alpha
+                    let pixelColor = color.withAlphaComponent(1.0)
+                    pixelColor.setFill()
+                    
                     // Flip y-coordinate to match the drawing coordinate system
                     let rect = NSRect(x: col, y: gridSize - 1 - row, width: 1, height: 1)
                     rect.fill()
                 }
             }
         }
-        
-        // End drawing
-        image.unlockFocus()
-        
-        // Create bitmap representation with exact pixel dimensions
-        guard let bitmapRep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: gridSize, pixelsHigh: gridSize, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
-        
-        // Draw the image to the bitmap rep
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep)
-        image.draw(in: NSRect(x: 0, y: 0, width: gridSize, height: gridSize))
         NSGraphicsContext.restoreGraphicsState()
         
         // Save as PNG
