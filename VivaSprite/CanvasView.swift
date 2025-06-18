@@ -10,6 +10,7 @@ import Cocoa
 class CanvasView: NSView {
     
     var toolManager: ToolManager?
+    weak var documentViewController: DocumentViewController?
     
     private let gridSize: Int = 32 // 32x32 pixel grid
     private let pixelSize: CGFloat = 16 // Each pixel is 16x16 points
@@ -113,6 +114,9 @@ class CanvasView: NSView {
             pixels[row][col] = nil
         }
         
+        // Mark document as modified
+        documentViewController?.markAsModified()
+        
         // Redraw the affected pixel area
         let rect = CGRect(
             x: CGFloat(col) * pixelSize,
@@ -146,6 +150,7 @@ class CanvasView: NSView {
     
     func clearCanvas() {
         pixels = Array(repeating: Array(repeating: nil, count: gridSize), count: gridSize)
+        documentViewController?.markAsModified()
         needsDisplay = true
     }
     
@@ -156,14 +161,29 @@ class CanvasView: NSView {
         }
         
         // Clear current canvas
-        clearCanvas()
+        pixels = Array(repeating: Array(repeating: nil, count: gridSize), count: gridSize)
         
-        // Create a bitmap representation of the image
+        // Create a bitmap representation of the image with proper aspect ratio
+        let originalSize = image.size
+        let scale = min(CGFloat(gridSize) / originalSize.width, CGFloat(gridSize) / originalSize.height)
+        let scaledWidth = originalSize.width * scale
+        let scaledHeight = originalSize.height * scale
+        
+        // Center the image in the grid
+        let offsetX = (CGFloat(gridSize) - scaledWidth) / 2
+        let offsetY = (CGFloat(gridSize) - scaledHeight) / 2
+        
         let targetSize = NSSize(width: gridSize, height: gridSize)
         let resizedImage = NSImage(size: targetSize)
         
         resizedImage.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: targetSize))
+        // Fill background with transparent/white
+        NSColor.clear.setFill()
+        NSRect(origin: .zero, size: targetSize).fill()
+        
+        // Draw the image centered and scaled
+        let drawRect = NSRect(x: offsetX, y: offsetY, width: scaledWidth, height: scaledHeight)
+        image.draw(in: drawRect)
         resizedImage.unlockFocus()
         
         guard let tiffData = resizedImage.tiffRepresentation,
@@ -175,6 +195,7 @@ class CanvasView: NSView {
         // Convert bitmap to pixel grid
         for row in 0..<gridSize {
             for col in 0..<gridSize {
+                // NSBitmapImageRep has (0,0) at top-left, same as our pixel array
                 let color = bitmapRep.colorAt(x: col, y: row)
                 
                 // Only set non-white pixels (preserve transparency)
@@ -183,6 +204,9 @@ class CanvasView: NSView {
                 }
             }
         }
+        
+        // Mark document as clean after loading
+        documentViewController?.markAsClean()
         
         // Refresh the view
         needsDisplay = true

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		86A3019C2E02EE80005D2ED9 /* DocumentViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A3019B2E02EE80005D2ED9 /* DocumentViewController.swift */; };
+		86A3019E2E02EE93005D2ED9 /* TabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A3019D2E02EE93005D2ED9 /* TabViewController.swift */; };
+		86A301A02E02EEA3005D2ED9 /* Document.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 86A3019F2E02EEA3005D2ED9 /* Document.storyboard */; };
 		A1234567890123456789012A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1234567890123456789012B /* AppDelegate.swift */; };
 		A1234567890123456789012C /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1234567890123456789012D /* ViewController.swift */; };
 		A1234567890123456789012E /* CanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1234567890123456789012F /* CanvasView.swift */; };
@@ -16,6 +19,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		86A3019B2E02EE80005D2ED9 /* DocumentViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewController.swift; sourceTree = "<group>"; };
+		86A3019D2E02EE93005D2ED9 /* TabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabViewController.swift; sourceTree = "<group>"; };
+		86A3019F2E02EEA3005D2ED9 /* Document.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Document.storyboard; sourceTree = "<group>"; };
 		A1234567890123456789012B /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A1234567890123456789012D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		A1234567890123456789012F /* CanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanvasView.swift; sourceTree = "<group>"; };
@@ -41,6 +47,8 @@
 		A1234567890123456789014C /* VivaSprite */ = {
 			isa = PBXGroup;
 			children = (
+				86A3019D2E02EE93005D2ED9 /* TabViewController.swift */,
+				86A3019B2E02EE80005D2ED9 /* DocumentViewController.swift */,
 				A1234567890123456789012B /* AppDelegate.swift */,
 				A1234567890123456789012D /* ViewController.swift */,
 				A1234567890123456789012F /* CanvasView.swift */,
@@ -72,6 +80,7 @@
 		A1234567890123456789014J /* Base.lproj */ = {
 			isa = PBXGroup;
 			children = (
+				86A3019F2E02EEA3005D2ED9 /* Document.storyboard */,
 				A1234567890123456789014G /* Main.storyboard */,
 			);
 			name = Base.lproj;
@@ -136,6 +145,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1234567890123456789013E /* Main.storyboard in Resources */,
+				86A301A02E02EEA3005D2ED9 /* Document.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -149,7 +159,9 @@
 				A1234567890123456789012A /* AppDelegate.swift in Sources */,
 				A1234567890123456789012C /* ViewController.swift in Sources */,
 				A1234567890123456789012E /* CanvasView.swift in Sources */,
+				86A3019C2E02EE80005D2ED9 /* DocumentViewController.swift in Sources */,
 				A1234567890123456789013A /* ColorPalette.swift in Sources */,
+				86A3019E2E02EE93005D2ED9 /* TabViewController.swift in Sources */,
 				A1234567890123456789013C /* ToolManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

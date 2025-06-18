@@ -37,7 +37,7 @@
                                     <items>
                                         <menuItem title="New" keyEquivalent="n" id="Was-JA-tGl">
                                             <connections>
-                                                <action selector="clearCanvas:" target="Ady-hI-5gd" id="4ZD-Eu-gNG"/>
+                                                <action selector="newDocument:" target="Ady-hI-5gd" id="4ZD-Eu-gNG"/>
                                             </connections>
                                         </menuItem>
                                         <menuItem title="Open" keyEquivalent="o" id="Opn-59-PXm">
@@ -71,9 +71,9 @@
                     <window key="window" title="VivaSprite - Pixel Art Editor" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" animationBehavior="default" id="IQv-IB-iLA">
                         <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
                         <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
-                        <rect key="contentRect" x="196" y="240" width="800" height="600"/>
+                        <rect key="contentRect" x="196" y="240" width="800" height="650"/>
                         <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1027"/>
-                        <value key="minSize" type="size" width="600" height="400"/>
+                        <value key="minSize" type="size" width="600" height="450"/>
                     </window>
                     <connections>
                         <segue destination="XfG-lQ-9wD" kind="relationship" relationship="window.shadowedContentViewController" id="cq2-FE-JQM"/>
@@ -88,81 +88,9 @@
             <objects>
                 <viewController id="XfG-lQ-9wD" customClass="ViewController" customModule="VivaSprite" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" wantsLayer="YES" id="m2S-Jp-Qdl">
-                        <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
+                        <rect key="frame" x="0.0" y="0.0" width="800" height="650"/>
                         <autoresizingMask key="autoresizingMask"/>
-                        <subviews>
-                            <scrollView autohidesScrollers="YES" horizontalLineScroll="19" horizontalPageScroll="10" verticalLineScroll="19" verticalPageScroll="10" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="fHW-Sl-2hG">
-                                <rect key="frame" x="20" y="80" width="512" height="512"/>
-                                <clipView key="contentView" drawsBackground="NO" id="Aqg-4f-gGe">
-                                    <rect key="frame" x="1" y="1" width="510" height="510"/>
-                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
-                                    <subviews>
-                                        <view fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="bQM-Xd-cGc" customClass="CanvasView" customModule="VivaSprite" customModuleProvider="target">
-                                            <rect key="frame" x="0.0" y="0.0" width="512" height="512"/>
-                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                        </view>
-                                    </subviews>
-                                </clipView>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="512" id="scroll-height-constraint"/>
-                                    <constraint firstAttribute="width" constant="512" id="scroll-width-constraint"/>
-                                </constraints>
-                                <scroller key="horizontalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="YES" id="hNp-wz-eNc">
-                                    <rect key="frame" x="1" y="495" width="510" height="16"/>
-                                    <autoresizingMask key="autoresizingMask"/>
-                                </scroller>
-                                <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="YhS-Nu-GzK">
-                                    <rect key="frame" x="495" y="1" width="16" height="510"/>
-                                    <autoresizingMask key="autoresizingMask"/>
-                                </scroller>
-                            </scrollView>
-                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Wdg-gd-Qzr">
-                                <rect key="frame" x="18" y="19" width="129" height="24"/>
-                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="Xhf-dh-YhS">
-                                    <font key="font" metaFont="system"/>
-                                    <segments>
-                                        <segment label="Pen" width="60" selected="YES"/>
-                                        <segment label="Eraser" width="60" tag="1"/>
-                                    </segments>
-                                </segmentedCell>
-                                <connections>
-                                    <action selector="toolChanged:" target="XfG-lQ-9wD" id="gfK-Nh-fhd"/>
-                                </connections>
-                            </segmentedControl>
-                            <view translatesAutoresizingMaskIntoConstraints="NO" id="Kcg-Nh-fhd" customClass="ColorPalette" customModule="VivaSprite" customModuleProvider="target">
-                                <rect key="frame" x="560" y="392" width="220" height="200"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="200" id="Kcg-height-constraint"/>
-                                    <constraint firstAttribute="width" constant="220" id="Kcg-width-constraint"/>
-                                </constraints>
-                            </view>
-                            <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="Btn-cl-ear">
-                                <rect key="frame" x="155" y="13" width="66" height="32"/>
-                                <buttonCell key="cell" type="push" title="Clear" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="Btn-cl-cell">
-                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
-                                    <font key="font" metaFont="system"/>
-                                </buttonCell>
-                                <connections>
-                                    <action selector="clearCanvas:" target="XfG-lQ-9wD" id="clr-act-ion"/>
-                                </connections>
-                            </button>
-                        </subviews>
-                        <constraints>
-                            <constraint firstItem="fHW-Sl-2hG" firstAttribute="leading" secondItem="m2S-Jp-Qdl" secondAttribute="leading" constant="20" id="2sp-cR-6hK"/>
-                            <constraint firstItem="fHW-Sl-2hG" firstAttribute="top" secondItem="m2S-Jp-Qdl" secondAttribute="top" constant="8" id="6VZ-zE-BTp"/>
-                            <constraint firstItem="Wdg-gd-Qzr" firstAttribute="leading" secondItem="m2S-Jp-Qdl" secondAttribute="leading" constant="20" id="8bC-XM-5aa"/>
-                            <constraint firstAttribute="bottom" secondItem="Wdg-gd-Qzr" secondAttribute="bottom" constant="20" id="H8p-BW-QzE"/>
-                            <constraint firstItem="Kcg-Nh-fhd" firstAttribute="leading" secondItem="fHW-Sl-2hG" secondAttribute="trailing" constant="28" id="Kcg-ld-con"/>
-                            <constraint firstItem="Kcg-Nh-fhd" firstAttribute="top" secondItem="fHW-Sl-2hG" secondAttribute="top" id="Kcg-tp-con"/>
-                            <constraint firstAttribute="bottom" secondItem="Btn-cl-ear" secondAttribute="bottom" constant="20" id="btn-bt-con"/>
-                            <constraint firstItem="Btn-cl-ear" firstAttribute="leading" secondItem="Wdg-gd-Qzr" secondAttribute="trailing" constant="17" id="btn-ld-con"/>
-                        </constraints>
                     </view>
-                    <connections>
-                        <outlet property="canvasView" destination="bQM-Xd-cGc" id="canvas-out"/>
-                        <outlet property="colorPalette" destination="Kcg-Nh-fhd" id="palette-out"/>
-                        <outlet property="toolSegmentedControl" destination="Wdg-gd-Qzr" id="tool-out"/>
-                    </connections>
                 </viewController>
                 <customObject id="rPt-NT-nkU" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
             </objects>

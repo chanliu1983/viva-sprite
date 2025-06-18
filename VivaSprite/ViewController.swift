@@ -9,57 +9,38 @@ import Cocoa
 
 class ViewController: NSViewController {
     
-    @IBOutlet weak var canvasView: CanvasView!
-    @IBOutlet weak var colorPalette: ColorPalette!
-    @IBOutlet weak var toolSegmentedControl: NSSegmentedControl!
-    
-    private var toolManager = ToolManager()
+    private var tabViewController: TabViewController!
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupUI()
-        setupToolManager()
+        setupTabViewController()
     }
     
-    private func setupUI() {
-        // Set up the main window
-        view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    private func setupTabViewController() {
+        let storyboard = NSStoryboard(name: "Document", bundle: nil)
+        tabViewController = storyboard.instantiateController(withIdentifier: "TabViewController") as? TabViewController
         
-        // Configure tool segmented control
-        toolSegmentedControl.segmentCount = 2
-        toolSegmentedControl.setLabel("Pen", forSegment: 0)
-        toolSegmentedControl.setLabel("Eraser", forSegment: 1)
-        toolSegmentedControl.selectedSegment = 0
-        
-        // Set up canvas
-        canvasView.toolManager = toolManager
-        
-        // Set up color palette
-        colorPalette.delegate = self
-        
-        // Set initial tool
-        toolManager.currentTool = .pen
-    }
-    
-    private func setupToolManager() {
-        toolManager.currentColor = NSColor.black
-        toolManager.brushSize = 1
-    }
-    
-    @IBAction func toolChanged(_ sender: NSSegmentedControl) {
-        switch sender.selectedSegment {
-        case 0:
-            toolManager.currentTool = .pen
-        case 1:
-            toolManager.currentTool = .eraser
-        default:
-            break
+        if let tabVC = tabViewController {
+            addChild(tabVC)
+            view.addSubview(tabVC.view)
+            
+            // Set up constraints
+            tabVC.view.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                tabVC.view.topAnchor.constraint(equalTo: view.topAnchor),
+                tabVC.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                tabVC.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+                tabVC.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            ])
         }
     }
     
     @IBAction func clearCanvas(_ sender: Any) {
-        canvasView.clearCanvas()
+        tabViewController?.getCurrentDocumentViewController()?.clearCanvas(sender)
+    }
+    
+    @IBAction func newDocument(_ sender: Any) {
+        tabViewController?.createNewDocument()
     }
     
     @IBAction func openImage(_ sender: Any) {
@@ -69,21 +50,17 @@ class ViewController: NSViewController {
         
         openPanel.begin { response in
             if response == .OK, let url = openPanel.url {
-                self.canvasView.loadImage(from: url)
+                self.tabViewController?.openDocument(from: url)
             }
         }
     }
     
     @IBAction func saveImage(_ sender: Any) {
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [.png]
-        savePanel.nameFieldStringValue = "pixel_art.png"
-        
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                self.canvasView.saveImage(to: url)
-            }
-        }
+        tabViewController?.saveCurrentDocument()
+    }
+    
+    @IBAction func closeDocument(_ sender: Any) {
+        tabViewController?.closeCurrentDocument()
     }
 }
 
@@ -92,12 +69,5 @@ extension ViewController: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         // Enable all menu items by default
         return true
-    }
-}
-
-// MARK: - ColorPaletteDelegate
-extension ViewController: ColorPaletteDelegate {
-    func colorSelected(_ color: NSColor) {
-        toolManager.currentColor = color
     }
 }

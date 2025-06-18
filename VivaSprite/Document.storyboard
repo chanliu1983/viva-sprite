@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.Storyboard.XIB" version="3.0" toolsVersion="23727" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+    <dependencies>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23727"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--Document View Controller-->
+        <scene sceneID="doc-scene-id">
+            <objects>
+                <viewController storyboardIdentifier="DocumentViewController" id="doc-vc-id" customClass="DocumentViewController" customModule="VivaSprite" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" wantsLayer="YES" id="doc-view-id">
+                        <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <scrollView autohidesScrollers="YES" horizontalLineScroll="19" horizontalPageScroll="10" verticalLineScroll="19" verticalPageScroll="10" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="doc-scroll-view">
+                                <rect key="frame" x="20" y="80" width="512" height="512"/>
+                                <clipView key="contentView" drawsBackground="NO" id="doc-clip-view">
+                                    <rect key="frame" x="1" y="1" width="510" height="510"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <subviews>
+                                        <view fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="doc-canvas-view" customClass="CanvasView" customModule="VivaSprite" customModuleProvider="target">
+                                            <rect key="frame" x="0.0" y="0.0" width="512" height="512"/>
+                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                        </view>
+                                    </subviews>
+                                </clipView>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="512" id="doc-scroll-height"/>
+                                    <constraint firstAttribute="width" constant="512" id="doc-scroll-width"/>
+                                </constraints>
+                                <scroller key="horizontalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="YES" id="doc-h-scroller">
+                                    <rect key="frame" x="1" y="495" width="510" height="16"/>
+                                    <autoresizingMask key="autoresizingMask"/>
+                                </scroller>
+                                <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" horizontal="NO" id="doc-v-scroller">
+                                    <rect key="frame" x="495" y="1" width="16" height="510"/>
+                                    <autoresizingMask key="autoresizingMask"/>
+                                </scroller>
+                            </scrollView>
+                            <segmentedControl verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="doc-tool-control">
+                                <rect key="frame" x="18" y="19" width="129" height="24"/>
+                                <segmentedCell key="cell" borderStyle="border" alignment="left" style="rounded" trackingMode="selectOne" id="doc-tool-cell">
+                                    <font key="font" metaFont="system"/>
+                                    <segments>
+                                        <segment label="Pen" width="60" selected="YES"/>
+                                        <segment label="Eraser" width="60" tag="1"/>
+                                    </segments>
+                                </segmentedCell>
+                                <connections>
+                                    <action selector="toolChanged:" target="doc-vc-id" id="doc-tool-action"/>
+                                </connections>
+                            </segmentedControl>
+                            <view translatesAutoresizingMaskIntoConstraints="NO" id="doc-color-palette" customClass="ColorPalette" customModule="VivaSprite" customModuleProvider="target">
+                                <rect key="frame" x="560" y="392" width="220" height="200"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="200" id="doc-palette-height"/>
+                                    <constraint firstAttribute="width" constant="220" id="doc-palette-width"/>
+                                </constraints>
+                            </view>
+                            <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="doc-clear-btn">
+                                <rect key="frame" x="155" y="13" width="66" height="32"/>
+                                <buttonCell key="cell" type="push" title="Clear" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="doc-clear-cell">
+                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" metaFont="system"/>
+                                </buttonCell>
+                                <connections>
+                                    <action selector="clearCanvas:" target="doc-vc-id" id="doc-clear-action"/>
+                                </connections>
+                            </button>
+                        </subviews>
+                        <constraints>
+                            <constraint firstItem="doc-scroll-view" firstAttribute="leading" secondItem="doc-view-id" secondAttribute="leading" constant="20" id="doc-scroll-leading"/>
+                            <constraint firstItem="doc-scroll-view" firstAttribute="top" secondItem="doc-view-id" secondAttribute="top" constant="60" id="doc-scroll-top"/>
+                            <constraint firstItem="doc-tool-control" firstAttribute="leading" secondItem="doc-view-id" secondAttribute="leading" constant="20" id="doc-tool-leading"/>
+                            <constraint firstAttribute="bottom" secondItem="doc-tool-control" secondAttribute="bottom" constant="20" id="doc-tool-bottom"/>
+                            <constraint firstItem="doc-color-palette" firstAttribute="leading" secondItem="doc-scroll-view" secondAttribute="trailing" constant="28" id="doc-palette-leading"/>
+                            <constraint firstItem="doc-color-palette" firstAttribute="top" secondItem="doc-scroll-view" secondAttribute="top" id="doc-palette-top"/>
+                            <constraint firstAttribute="bottom" secondItem="doc-clear-btn" secondAttribute="bottom" constant="20" id="doc-clear-bottom"/>
+                            <constraint firstItem="doc-clear-btn" firstAttribute="leading" secondItem="doc-tool-control" secondAttribute="trailing" constant="17" id="doc-clear-leading"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="canvasView" destination="doc-canvas-view" id="doc-canvas-outlet"/>
+                        <outlet property="colorPalette" destination="doc-color-palette" id="doc-palette-outlet"/>
+                        <outlet property="toolSegmentedControl" destination="doc-tool-control" id="doc-tool-outlet"/>
+                    </connections>
+                </viewController>
+                <customObject id="doc-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="75" y="655"/>
+        </scene>
+        <!--Tab View Controller-->
+        <scene sceneID="tab-scene-id">
+            <objects>
+                <viewController storyboardIdentifier="TabViewController" id="tab-vc-id" customClass="TabViewController" customModule="VivaSprite" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" wantsLayer="YES" id="tab-view-id">
+                        <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <subviews>
+                            <tabView translatesAutoresizingMaskIntoConstraints="NO" id="tab-view-control">
+                                <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
+                                <font key="font" metaFont="system"/>
+                                <tabViewItems/>
+                            </tabView>
+                        </subviews>
+                        <constraints>
+                            <constraint firstItem="tab-view-control" firstAttribute="top" secondItem="tab-view-id" secondAttribute="top" id="tab-view-top"/>
+                            <constraint firstItem="tab-view-control" firstAttribute="leading" secondItem="tab-view-id" secondAttribute="leading" id="tab-view-leading"/>
+                            <constraint firstAttribute="trailing" secondItem="tab-view-control" secondAttribute="trailing" id="tab-view-trailing"/>
+                            <constraint firstAttribute="bottom" secondItem="tab-view-control" secondAttribute="bottom" id="tab-view-bottom"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="tabView" destination="tab-view-control" id="tab-view-outlet"/>
+                    </connections>
+                </viewController>
+                <customObject id="tab-first-responder" userLabel="First Responder" customClass="NSResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="75" y="250"/>
+        </scene>
+    </scenes>
+</document>
