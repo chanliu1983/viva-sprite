@@ -155,7 +155,9 @@ class CanvasView: NSView {
     }
     
     func loadImage(from url: URL) {
-        guard let image = NSImage(contentsOf: url) else {
+        // Load image data directly
+        guard let imageData = try? Data(contentsOf: url),
+              let sourceRep = NSBitmapImageRep(data: imageData) else {
             print("Failed to load image from \(url)")
             return
         }
@@ -163,44 +165,45 @@ class CanvasView: NSView {
         // Clear current canvas
         pixels = Array(repeating: Array(repeating: nil, count: gridSize), count: gridSize)
         
-        // Create a bitmap representation of the image with proper aspect ratio
-        let originalSize = image.size
-        let scale = min(CGFloat(gridSize) / originalSize.width, CGFloat(gridSize) / originalSize.height)
-        let scaledWidth = originalSize.width * scale
-        let scaledHeight = originalSize.height * scale
+        // Get source dimensions
+        let sourceWidth = sourceRep.pixelsWide
+        let sourceHeight = sourceRep.pixelsHigh
         
-        // Center the image in the grid
-        let offsetX = (CGFloat(gridSize) - scaledWidth) / 2
-        let offsetY = (CGFloat(gridSize) - scaledHeight) / 2
+        // Calculate scaling to fit within grid while maintaining aspect ratio
+        let scaleX = Double(gridSize) / Double(sourceWidth)
+        let scaleY = Double(gridSize) / Double(sourceHeight)
+        let scale = min(scaleX, scaleY)
         
-        let targetSize = NSSize(width: gridSize, height: gridSize)
-        let resizedImage = NSImage(size: targetSize)
+        // Calculate dimensions after scaling
+        let targetWidth = Int(Double(sourceWidth) * scale)
+        let targetHeight = Int(Double(sourceHeight) * scale)
         
-        resizedImage.lockFocus()
-        // Fill background with transparent/white
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: targetSize).fill()
+        // Calculate offsets to center the image
+        let offsetX = (gridSize - targetWidth) / 2
+        let offsetY = (gridSize - targetHeight) / 2
         
-        // Draw the image centered and scaled
-        let drawRect = NSRect(x: offsetX, y: offsetY, width: scaledWidth, height: scaledHeight)
-        image.draw(in: drawRect)
-        resizedImage.unlockFocus()
-        
-        guard let tiffData = resizedImage.tiffRepresentation,
-              let bitmapRep = NSBitmapImageRep(data: tiffData) else {
-            print("Failed to create bitmap representation")
-            return
-        }
-        
-        // Convert bitmap to pixel grid
+        // Sample pixels from source and place in our grid
         for row in 0..<gridSize {
             for col in 0..<gridSize {
-                // NSBitmapImageRep has (0,0) at top-left, same as our pixel array
-                let color = bitmapRep.colorAt(x: col, y: row)
+                // Skip pixels outside the target area
+                if row < offsetY || row >= offsetY + targetHeight || 
+                   col < offsetX || col >= offsetX + targetWidth {
+                    continue
+                }
                 
-                // Only set non-white pixels (preserve transparency)
-                if let color = color, color != NSColor.white {
-                    pixels[row][col] = color
+                // Map grid coordinates to source coordinates
+                let sourceX = Int(Double(col - offsetX) / scale)
+                let sourceY = Int(Double(row - offsetY) / scale)
+                
+                // Ensure source coordinates are within bounds
+                if sourceX >= 0 && sourceX < sourceWidth && sourceY >= 0 && sourceY < sourceHeight {
+                    // Get color from source (handle coordinate system differences)
+                    guard let color = sourceRep.colorAt(x: sourceX, y: sourceY) else { continue }
+                    
+                    // Only set non-white/non-transparent pixels
+                    if color.alphaComponent > 0.1 && color != NSColor.white {
+                        pixels[row][col] = color.withAlphaComponent(1.0) // Strip alpha
+                    }
                 }
             }
         }
@@ -213,33 +216,42 @@ class CanvasView: NSView {
     }
     
     func saveImage(to url: URL) {
-        let imageSize = CGSize(width: CGFloat(gridSize), height: CGFloat(gridSize))
-        let image = NSImage(size: imageSize)
+        // Create a new image with the exact grid size
+        let image = NSImage(size: NSSize(width: gridSize, height: gridSize))
         
+        // Lock focus to draw on the image
         image.lockFocus()
         
-        // Fill background with white
+        // Fill with white background
         NSColor.white.setFill()
-        NSRect(origin: .zero, size: imageSize).fill()
+        NSRect(x: 0, y: 0, width: gridSize, height: gridSize).fill()
         
-        // Draw pixels
+        // Draw each pixel
         for row in 0..<gridSize {
             for col in 0..<gridSize {
                 if let color = pixels[row][col] {
                     color.setFill()
+                    // Flip y-coordinate to match the drawing coordinate system
                     let rect = NSRect(x: col, y: gridSize - 1 - row, width: 1, height: 1)
                     rect.fill()
                 }
             }
         }
         
+        // End drawing
         image.unlockFocus()
         
+        // Create bitmap representation with exact pixel dimensions
+        guard let bitmapRep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: gridSize, pixelsHigh: gridSize, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return }
+        
+        // Draw the image to the bitmap rep
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmapRep)
+        image.draw(in: NSRect(x: 0, y: 0, width: gridSize, height: gridSize))
+        NSGraphicsContext.restoreGraphicsState()
+        
         // Save as PNG
-        if let tiffData = image.tiffRepresentation,
-           let bitmapRep = NSBitmapImageRep(data: tiffData),
-           let pngData = bitmapRep.representation(using: .png, properties: [:]) {
-            try? pngData.write(to: url)
-        }
+        guard let pngData = bitmapRep.representation(using: .png, properties: [:]) else { return }
+        try? pngData.write(to: url)
     }
 }
