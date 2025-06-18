@@ -22,9 +22,20 @@ class TabViewController: NSViewController {
     
     private func setupTabView() {
         tabView.delegate = self
+        
+        // Set tab view style
         tabView.tabViewType = .topTabsBezelBorder
-        tabView.allowsTruncatedLabels = false
+        tabView.allowsTruncatedLabels = true
         tabView.drawsBackground = true
+        
+        // Make sure the tab view is visible and properly sized
+        tabView.isHidden = false
+        tabView.frame = view.bounds
+        tabView.autoresizingMask = [.width, .height]
+        
+        // Ensure the tab view has a background color
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
     }
     
     func createNewDocument() {

@@ -46,6 +46,31 @@ class DocumentViewController: NSViewController {
         
         // Set initial tool
         toolManager.currentTool = .pen
+        
+        // Add close button
+        addCloseButton()
+    }
+    
+    private func addCloseButton() {
+        let closeButton = NSButton(frame: NSRect(x: 0, y: 0, width: 30, height: 30))
+        closeButton.bezelStyle = .circular
+        closeButton.title = "×"
+        closeButton.font = NSFont.systemFont(ofSize: 16, weight: .bold)
+        closeButton.target = self
+        closeButton.action = #selector(closeButtonClicked(_:))
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(closeButton)
+        
+        NSLayoutConstraint.activate([
+            closeButton.topAnchor.constraint(equalTo: view.topAnchor, constant: 10),
+            closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
+            closeButton.widthAnchor.constraint(equalToConstant: 30),
+            closeButton.heightAnchor.constraint(equalToConstant: 30)
+        ])
+    }
+    
+    @objc func closeButtonClicked(_ sender: NSButton) {
+        tabViewController?.closeCurrentDocument()
     }
     
     private func setupToolManager() {
