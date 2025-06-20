@@ -15,8 +15,7 @@ class SkeletalDocumentViewController: NSViewController {
     var skeletalEditorView: SkeletalEditorView!
     var toolPopUpButton: NSPopUpButton!
     var modeSegmentedControl: NSSegmentedControl!
-    var hierarchyOutlineView: NSOutlineView!
-    var propertiesStackView: NSStackView!
+  private var propertiesStackView: NSStackView!
     
     // MARK: - Properties
     
@@ -32,7 +31,6 @@ class SkeletalDocumentViewController: NSViewController {
     
     private var selectedJoint: Joint?
     private var selectedBone: Bone?
-    private var hierarchyDataSource: SkeletalHierarchyDataSource!
     
     // MARK: - Lifecycle
     
@@ -40,7 +38,6 @@ class SkeletalDocumentViewController: NSViewController {
         super.viewDidLoad()
         setupSkeleton()
         setupUI()
-        setupHierarchy()
         setupProperties()
         
         // Configure skeletal editor after UI is set up
@@ -224,24 +221,7 @@ class SkeletalDocumentViewController: NSViewController {
         modeSegmentedControl.action = #selector(modeChanged(_:))
         leftStackView.addArrangedSubview(modeSegmentedControl)
         
-        // Create hierarchy section
-        let hierarchyLabel = NSTextField(labelWithString: "Hierarchy")
-        hierarchyLabel.font = NSFont.boldSystemFont(ofSize: 14)
-        leftStackView.addArrangedSubview(hierarchyLabel)
-        
-        // Create hierarchy outline view in scroll view
-        let hierarchyScrollView = NSScrollView()
-        hierarchyScrollView.borderType = .bezelBorder
-        hierarchyScrollView.hasVerticalScroller = true
-        hierarchyScrollView.hasHorizontalScroller = true
-        hierarchyScrollView.autohidesScrollers = true
-        
-        hierarchyOutlineView = NSOutlineView()
-        hierarchyOutlineView.headerView = nil
-        hierarchyOutlineView.allowsMultipleSelection = false
-        
-        hierarchyScrollView.documentView = hierarchyOutlineView
-        leftStackView.addArrangedSubview(hierarchyScrollView)
+
         
         // Create properties section
         let propertiesLabel = NSTextField(labelWithString: "Properties")
@@ -292,34 +272,14 @@ class SkeletalDocumentViewController: NSViewController {
             modeSegmentedControl.widthAnchor.constraint(equalToConstant: 234),
             
             // Scroll view heights
-            hierarchyScrollView.heightAnchor.constraint(equalToConstant: 200),
-            propertiesScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 150)
+            propertiesScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
         ])
         
         // Set split view position
         splitView.setPosition(250, ofDividerAt: 0)
     }
     
-    private func setupHierarchy() {
-        hierarchyDataSource = SkeletalHierarchyDataSource(skeleton: skeleton)
-        hierarchyOutlineView.dataSource = hierarchyDataSource
-        hierarchyOutlineView.delegate = self
-        
-        // Setup columns
-        let nameColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("name"))
-        nameColumn.title = "Name"
-        nameColumn.width = 150
-        hierarchyOutlineView.addTableColumn(nameColumn)
-        
-        let typeColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("type"))
-        typeColumn.title = "Type"
-        typeColumn.width = 80
-        hierarchyOutlineView.addTableColumn(typeColumn)
-        
-        hierarchyOutlineView.outlineTableColumn = nameColumn
-        hierarchyOutlineView.reloadData()
-        hierarchyOutlineView.expandItem(nil, expandChildren: true)
-    }
+
     
     private func setupProperties() {
         // Properties panel will be populated based on selection
@@ -414,9 +374,13 @@ class SkeletalDocumentViewController: NSViewController {
     }
     
     private func setupJointProperties(_ joint: Joint) {
+        print("Setting up joint properties for: \(joint.name)")
+        print("Properties stack view subviews before: \(propertiesStackView.arrangedSubviews.count)")
+        
         let titleLabel = NSTextField(labelWithString: "Joint Properties")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 14)
         propertiesStackView.addArrangedSubview(titleLabel)
+        print("Added title label")
         
         // Name
         let nameContainer = createPropertyRow(label: "Name:", control: {
@@ -424,9 +388,13 @@ class SkeletalDocumentViewController: NSViewController {
             textField.stringValue = joint.name
             textField.target = self
             textField.action = #selector(jointNameChanged(_:))
+            print("Created name text field with value: \(joint.name)")
             return textField
         }())
         propertiesStackView.addArrangedSubview(nameContainer)
+        print("Added name container")
+        
+        print("Properties stack view subviews after name: \(propertiesStackView.arrangedSubviews.count)")
         
         // Position
         let positionContainer = createPropertyRow(label: "Position:", control: {
@@ -569,7 +537,6 @@ class SkeletalDocumentViewController: NSViewController {
     
     @objc private func jointNameChanged(_ sender: NSTextField) {
         selectedJoint?.name = sender.stringValue
-        hierarchyOutlineView.reloadData()
         isModified = true
     }
     
@@ -604,7 +571,6 @@ class SkeletalDocumentViewController: NSViewController {
     
     @objc private func boneNameChanged(_ sender: NSTextField) {
         selectedBone?.name = sender.stringValue
-        hierarchyOutlineView.reloadData()
         isModified = true
     }
     
@@ -704,8 +670,7 @@ class SkeletalDocumentViewController: NSViewController {
             // Replace current skeleton
             skeleton = newSkeleton
             skeletalEditorView.skeleton = skeleton
-            hierarchyDataSource.updateSkeleton(skeleton)
-            hierarchyOutlineView.reloadData()
+            updatePropertiesPanel()
             skeletalEditorView.needsDisplay = true
             
             let alert = NSAlert()
@@ -730,92 +695,21 @@ extension SkeletalDocumentViewController: SkeletalEditorDelegate {
         selectedBone = bone
         selectedJoint = nil
         updatePropertiesPanel()
-        
-        // Update hierarchy selection
-        if let bone = bone {
-            let index = skeleton.bones.firstIndex { $0.id == bone.id } ?? -1
-            if index >= 0 {
-                hierarchyOutlineView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
-            }
-        }
     }
     
     func skeletalEditor(_ editor: SkeletalEditorView, didSelectJoint joint: Joint?) {
         selectedJoint = joint
         selectedBone = nil
         updatePropertiesPanel()
-        
-        // Update hierarchy selection
-        if let joint = joint {
-            let index = skeleton.joints.firstIndex { $0.id == joint.id } ?? -1
-            if index >= 0 {
-                hierarchyOutlineView.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
-            }
-        }
     }
     
     func skeletalEditor(_ editor: SkeletalEditorView, didModifySkeleton skeleton: Skeleton) {
         isModified = true
-        hierarchyOutlineView.reloadData()
+        updatePropertiesPanel()
     }
 }
 
-// MARK: - NSOutlineViewDelegate
 
-extension SkeletalDocumentViewController: NSOutlineViewDelegate {
-    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
-        let identifier = tableColumn?.identifier ?? NSUserInterfaceItemIdentifier("")
-        
-        if let joint = item as? Joint {
-            if identifier.rawValue == "name" {
-                let cellView = NSTableCellView()
-                let textField = NSTextField(labelWithString: joint.name)
-                cellView.addSubview(textField)
-                cellView.textField = textField
-                return cellView
-            } else if identifier.rawValue == "type" {
-                let cellView = NSTableCellView()
-                let textField = NSTextField(labelWithString: "Joint")
-                cellView.addSubview(textField)
-                cellView.textField = textField
-                return cellView
-            }
-        } else if let bone = item as? Bone {
-            if identifier.rawValue == "name" {
-                let cellView = NSTableCellView()
-                let textField = NSTextField(labelWithString: bone.name)
-                cellView.addSubview(textField)
-                cellView.textField = textField
-                return cellView
-            } else if identifier.rawValue == "type" {
-                let cellView = NSTableCellView()
-                let textField = NSTextField(labelWithString: "Bone")
-                cellView.addSubview(textField)
-                cellView.textField = textField
-                return cellView
-            }
-        }
-        
-        return nil
-    }
-    
-    func outlineViewSelectionDidChange(_ notification: Notification) {
-        let selectedRow = hierarchyOutlineView.selectedRow
-        if selectedRow >= 0 {
-            let item = hierarchyOutlineView.item(atRow: selectedRow)
-            
-            if let joint = item as? Joint {
-                selectedJoint = joint
-                selectedBone = nil
-            } else if let bone = item as? Bone {
-                selectedBone = bone
-                selectedJoint = nil
-            }
-            
-            updatePropertiesPanel()
-        }
-    }
-}
 
 // MARK: - Extensions
 
