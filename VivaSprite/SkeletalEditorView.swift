@@ -980,8 +980,25 @@ class SkeletalEditorView: NSView {
 
 extension SkeletalEditorView: PixelArtEditorDelegate {
     func pixelArtEditor(_ editor: PixelArtEditorWindow, didUpdatePixelArt pixelArt: PixelArtData, for bone: Bone) {
+        print("SkeletalEditorView: Received pixel art update for bone '\(bone.name)'")
+        let nonEmptyPixels = pixelArt.pixels.flatMap({ $0 }).compactMap({ $0 }).count
+        print("SkeletalEditorView: Pixel art has \(nonEmptyPixels) non-empty pixels")
+        
         bone.pixelArt = pixelArt
+        print("SkeletalEditorView: Assigned pixel art to bone.pixelArt")
+        
+        if let skeleton = skeleton {
+            // Add or update pixel art in skeleton.pixelArts
+            if let idx = skeleton.pixelArts.firstIndex(where: { $0.id == pixelArt.id }) {
+                skeleton.pixelArts[idx] = pixelArt
+                print("SkeletalEditorView: Updated existing pixel art in skeleton.pixelArts at index \(idx)")
+            } else {
+                skeleton.addPixelArt(pixelArt)
+                print("SkeletalEditorView: Added new pixel art to skeleton.pixelArts")
+            }
+        }
         delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
         needsDisplay = true
+        print("SkeletalEditorView: Triggered display update to show pixel art on bone")
     }
 }

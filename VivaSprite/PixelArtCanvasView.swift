@@ -21,6 +21,13 @@ class PixelArtCanvasView: NSView {
     
     var pixelArt: PixelArtData? {
         didSet {
+            if let pixelArt = pixelArt {
+                print("PixelArtCanvasView: Pixel art assigned - \(pixelArt.name), size: \(pixelArt.width)x\(pixelArt.height)")
+                let nonEmptyPixels = pixelArt.pixels.flatMap({ $0 }).compactMap({ $0 }).count
+                print("PixelArtCanvasView: Non-empty pixels count: \(nonEmptyPixels)")
+            } else {
+                print("PixelArtCanvasView: Pixel art set to nil")
+            }
             updateCanvasSize()
             needsDisplay = true
         }

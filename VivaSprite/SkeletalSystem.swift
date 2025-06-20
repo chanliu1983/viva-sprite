@@ -339,12 +339,14 @@ struct SkeletonData: Codable {
     let rootJointId: String?
     let joints: [JointData]
     let bones: [BoneData]
+    let pixelArts: [PixelArtDataCodable]
     
     init(from skeleton: Skeleton) {
         self.name = skeleton.name
         self.rootJointId = skeleton.rootJoint?.id.uuidString
         self.joints = skeleton.joints.map { JointData(from: $0) }
         self.bones = skeleton.bones.map { BoneData(from: $0) }
+        self.pixelArts = skeleton.pixelArts.map { PixelArtDataCodable(from: $0) }
     }
 }
 
@@ -378,6 +380,7 @@ struct BoneData: Codable {
     let thickness: Float
     let color: ColorData
     let originalLength: Float?
+    let pixelArtId: String?
     
     init(from bone: Bone) {
         self.id = bone.id.uuidString
@@ -387,6 +390,7 @@ struct BoneData: Codable {
         self.thickness = bone.thickness
         self.color = ColorData(from: bone.color)
         self.originalLength = bone.originalLength
+        self.pixelArtId = bone.pixelArt?.id.uuidString
     }
 }
 
@@ -407,6 +411,85 @@ struct ColorData: Codable {
         self.g = Float(rgbColor.greenComponent)
         self.b = Float(rgbColor.blueComponent)
         self.a = Float(rgbColor.alphaComponent)
+    }
+    
+    func toNSColor() -> NSColor {
+        return NSColor(red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: CGFloat(a))
+    }
+}
+
+struct PixelArtDataCodable: Codable {
+    let id: String
+    let name: String
+    let width: Int
+    let height: Int
+    let anchorPoint: Vector2Data
+    let imageData: String // Base64 encoded image data
+    
+    init(from pixelArt: PixelArtData) {
+        self.id = pixelArt.id.uuidString
+        self.name = pixelArt.name
+        self.width = pixelArt.width
+        self.height = pixelArt.height
+        self.anchorPoint = Vector2Data(x: pixelArt.anchorPoint.x, y: pixelArt.anchorPoint.y)
+        self.imageData = PixelArtDataCodable.encodePixelsToBase64(pixelArt.pixels)
+    }
+    
+    func toPixelArtData() -> PixelArtData {
+        var pixelArt = PixelArtData(name: name, width: width, height: height)
+        pixelArt.anchorPoint = simd_float2(anchorPoint.x, anchorPoint.y)
+        pixelArt.pixels = PixelArtDataCodable.decodePixelsFromBase64(imageData, width: width, height: height)
+        return pixelArt
+    }
+    
+    private static func encodePixelsToBase64(_ pixels: [[NSColor?]]) -> String {
+        var data = Data()
+        
+        for row in pixels {
+            for pixel in row {
+                if let color = pixel {
+                    let rgbColor = color.usingColorSpace(.sRGB) ?? color
+                    let r = UInt8(rgbColor.redComponent * 255)
+                    let g = UInt8(rgbColor.greenComponent * 255)
+                    let b = UInt8(rgbColor.blueComponent * 255)
+                    let a = UInt8(rgbColor.alphaComponent * 255)
+                    data.append(contentsOf: [r, g, b, a])
+                } else {
+                    // Transparent pixel
+                    data.append(contentsOf: [0, 0, 0, 0])
+                }
+            }
+        }
+        
+        return data.base64EncodedString()
+    }
+    
+    private static func decodePixelsFromBase64(_ base64String: String, width: Int, height: Int) -> [[NSColor?]] {
+        guard let data = Data(base64Encoded: base64String) else {
+            return Array(repeating: Array(repeating: nil, count: width), count: height)
+        }
+        
+        var pixels: [[NSColor?]] = Array(repeating: Array(repeating: nil, count: width), count: height)
+        let bytesPerPixel = 4 // RGBA
+        
+        for row in 0..<height {
+            for col in 0..<width {
+                let pixelIndex = (row * width + col) * bytesPerPixel
+                
+                if pixelIndex + 3 < data.count {
+                    let r = CGFloat(data[pixelIndex]) / 255.0
+                    let g = CGFloat(data[pixelIndex + 1]) / 255.0
+                    let b = CGFloat(data[pixelIndex + 2]) / 255.0
+                    let a = CGFloat(data[pixelIndex + 3]) / 255.0
+                    
+                    if a > 0 { // Only create color if not transparent
+                        pixels[row][col] = NSColor(red: r, green: g, blue: b, alpha: a)
+                    }
+                }
+            }
+        }
+        
+        return pixels
     }
 }
 

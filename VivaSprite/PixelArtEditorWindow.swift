@@ -36,8 +36,10 @@ class PixelArtEditorWindow: NSWindowController {
         // Initialize or use existing pixel art
         if let existingPixelArt = bone.pixelArt {
             self.pixelArt = existingPixelArt
+            print("Loading existing pixel art for bone: \(bone.name), size: \(existingPixelArt.width)x\(existingPixelArt.height)")
         } else {
             self.pixelArt = PixelArtData(name: "\(bone.name) Art", width: 32, height: 32)
+            print("Creating new pixel art for bone: \(bone.name)")
         }
         
         // Create window
@@ -101,6 +103,12 @@ class PixelArtEditorWindow: NSWindowController {
         canvasView.pixelArt = pixelArt
         canvasView.delegate = self
         canvasView.translatesAutoresizingMaskIntoConstraints = false
+        
+        print("Setting up canvas view with pixel art: \(pixelArt.name), size: \(pixelArt.width)x\(pixelArt.height)")
+        print("Canvas view pixel art set: \(canvasView.pixelArt != nil ? "YES" : "NO")")
+        
+        // Force canvas to update its display
+        canvasView.needsDisplay = true
     }
     
     private func setupColorPalette() {
@@ -347,7 +355,12 @@ class PixelArtEditorWindow: NSWindowController {
     }
     
     private func updateBone() {
+        print("Updating bone '\(bone.name)' with pixel art '\(pixelArt.name)'")
+        let nonEmptyPixels = pixelArt.pixels.flatMap({ $0 }).compactMap({ $0 }).count
+        print("Pixel art contains \(nonEmptyPixels) non-empty pixels out of \(pixelArt.width * pixelArt.height) total pixels")
+        
         delegate?.pixelArtEditor(self, didUpdatePixelArt: pixelArt, for: bone)
+        print("Delegate notified of pixel art update")
     }
 }
 
@@ -425,6 +438,16 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
     
     @objc func savePixelArt() {
         print("Save button clicked - saving pixel art")
+        
+        // Ensure we have the latest pixel art data from the canvas
+        if let canvasPixelArt = canvasView.pixelArt {
+            pixelArt = canvasPixelArt
+            print("Updated pixel art from canvas: \(pixelArt.name), size: \(pixelArt.width)x\(pixelArt.height)")
+            
+            let nonEmptyPixels = pixelArt.pixels.flatMap({ $0 }).compactMap({ $0 }).count
+            print("Saving \(nonEmptyPixels) non-empty pixels to bone: \(bone.name)")
+        }
+        
         updateBone()
         print("Data saved, closing window")
         

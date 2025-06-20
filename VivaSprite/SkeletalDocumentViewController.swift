@@ -666,6 +666,14 @@ class SkeletalDocumentViewController: NSViewController {
                 jointMap[jointData.id] = joint
             }
             
+            // Import pixel arts
+            var pixelArtMap: [String: PixelArtData] = [:]
+            for pixelArtData in skeletonData.pixelArts {
+                let pixelArt = pixelArtData.toPixelArtData()
+                pixelArtMap[pixelArtData.id] = pixelArt
+                newSkeleton.pixelArts.append(pixelArt)
+            }
+            
             // Import bones
             for boneData in skeletonData.bones {
                 guard let startJoint = jointMap[boneData.startJointId],
@@ -681,6 +689,13 @@ class SkeletalDocumentViewController: NSViewController {
                                    green: CGFloat(boneData.color.g), 
                                    blue: CGFloat(boneData.color.b), 
                                    alpha: CGFloat(boneData.color.a))
+                
+                // Assign pixel art to bone if it has one
+                if let pixelArtId = boneData.pixelArtId,
+                   let pixelArt = pixelArtMap[pixelArtId] {
+                    bone.pixelArt = pixelArt
+                }
+                
                 newSkeleton.addBone(bone)
             }
             
