@@ -130,10 +130,9 @@ class PixelArtEditorWindow: NSWindowController {
         
         // Tool control
         toolSegmentedControl = NSSegmentedControl()
-        toolSegmentedControl.segmentCount = 3
+        toolSegmentedControl.segmentCount = 2
         toolSegmentedControl.setLabel("Pen", forSegment: 0)
         toolSegmentedControl.setLabel("Eraser", forSegment: 1)
-        toolSegmentedControl.setLabel("Fill", forSegment: 2)
         toolSegmentedControl.selectedSegment = 0
         toolSegmentedControl.target = self
         toolSegmentedControl.action = #selector(toolChanged)
@@ -271,8 +270,6 @@ class PixelArtEditorWindow: NSWindowController {
             canvasView.currentTool = .pen
         case 1:
             canvasView.currentTool = .eraser
-        case 2:
-            canvasView.currentTool = .fill
         default:
             break
         }

@@ -776,9 +776,10 @@ class SkeletalEditorView: NSView {
     /// Recursively resolve IK for connected chains when joints are modified
     private func resolveConnectedChains(skeleton: Skeleton, modifiedJoints: Set<Joint>, depth: Int = 0) {
         // Prevent infinite recursion
-        guard depth < 3 else { return }
+        guard depth < 5 else { return }
         
         var newlyModifiedJoints = Set<Joint>()
+        let tolerance: Float = 0.01 // Stricter tolerance
         
         // Enforce bone lengths for all bones connected to modified joints
         for joint in modifiedJoints {
@@ -790,19 +791,16 @@ class SkeletalEditorView: NSView {
                 let currentLength = simd_distance(bone.startJoint.position, bone.endJoint.position)
                 let expectedLength = bone.originalLength
                 
-                // Use a smaller tolerance to be more strict about bone lengths
-                if abs(currentLength - expectedLength) > 0.1 {
+                if abs(currentLength - expectedLength) > tolerance {
                     // Determine which joint to move (prefer non-fixed joints not in IK chain)
                     let startInIKChain = ikChain.contains { $0 === bone.startJoint }
                     let endInIKChain = ikChain.contains { $0 === bone.endJoint }
                     
                     if !bone.endJoint.isFixed && !endInIKChain && (bone.startJoint.isFixed || startInIKChain || modifiedJoints.contains(bone.startJoint)) {
-                        // Move end joint to maintain bone length
                         let direction = simd_normalize(bone.endJoint.position - bone.startJoint.position)
                         bone.endJoint.position = bone.startJoint.position + direction * expectedLength
                         newlyModifiedJoints.insert(bone.endJoint)
                     } else if !bone.startJoint.isFixed && !startInIKChain && (bone.endJoint.isFixed || endInIKChain || modifiedJoints.contains(bone.endJoint)) {
-                        // Move start joint to maintain bone length
                         let direction = simd_normalize(bone.startJoint.position - bone.endJoint.position)
                         bone.startJoint.position = bone.endJoint.position + direction * expectedLength
                         newlyModifiedJoints.insert(bone.startJoint)
@@ -810,10 +808,24 @@ class SkeletalEditorView: NSView {
                 }
             }
         }
-        
         // Recursively resolve newly modified joints
         if !newlyModifiedJoints.isEmpty {
             resolveConnectedChains(skeleton: skeleton, modifiedJoints: newlyModifiedJoints, depth: depth + 1)
+        }
+        // Final pass: strictly enforce all bone lengths in skeleton
+        for bone in skeleton.bones {
+            let currentLength = simd_distance(bone.startJoint.position, bone.endJoint.position)
+            let expectedLength = bone.originalLength
+            if abs(currentLength - expectedLength) > tolerance {
+                // Move non-fixed joint if possible
+                if !bone.endJoint.isFixed {
+                    let direction = simd_normalize(bone.endJoint.position - bone.startJoint.position)
+                    bone.endJoint.position = bone.startJoint.position + direction * expectedLength
+                } else if !bone.startJoint.isFixed {
+                    let direction = simd_normalize(bone.startJoint.position - bone.endJoint.position)
+                    bone.startJoint.position = bone.endJoint.position + direction * expectedLength
+                }
+            }
         }
     }
     

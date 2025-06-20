@@ -10,7 +10,6 @@ import Cocoa
 enum PixelArtTool {
     case pen
     case eraser
-    case fill
 }
 
 class PixelArtCanvasView: NSView {
@@ -177,8 +176,6 @@ class PixelArtCanvasView: NSView {
                 drawPixel(at: row, col: col, color: currentColor)
             case .eraser:
                 erasePixel(at: row, col: col)
-            case .fill:
-                floodFill(at: row, col: col, with: currentColor)
             }
         }
     }
@@ -201,9 +198,6 @@ class PixelArtCanvasView: NSView {
                 drawPixel(at: row, col: col, color: currentColor)
             case .eraser:
                 erasePixel(at: row, col: col)
-            case .fill:
-                // Fill tool doesn't work with dragging
-                break
             }
         }
     }
@@ -234,65 +228,6 @@ class PixelArtCanvasView: NSView {
         self.pixelArt = pixelArt
         needsDisplay = true
         delegate?.pixelArtCanvasDidChange(self)
-    }
-    
-    private func floodFill(at row: Int, col: Int, with color: NSColor) {
-        guard var pixelArt = pixelArt else { return }
-        guard row >= 0 && row < pixelArt.height && col >= 0 && col < pixelArt.width else { return }
-        
-        let targetColor = pixelArt.pixels[row][col]
-        
-        // Don't fill if the target color is the same as the fill color
-        if colorsEqual(targetColor, color) {
-            return
-        }
-        
-        var stack: [(Int, Int)] = [(row, col)]
-        var visited: Set<String> = []
-        
-        while !stack.isEmpty {
-            let (currentRow, currentCol) = stack.removeLast()
-            let key = "\(currentRow),\(currentCol)"
-            
-            if visited.contains(key) {
-                continue
-            }
-            
-            if currentRow < 0 || currentRow >= pixelArt.height || currentCol < 0 || currentCol >= pixelArt.width {
-                continue
-            }
-            
-            if !colorsEqual(pixelArt.pixels[currentRow][currentCol], targetColor!) {
-                continue
-            }
-            
-            visited.insert(key)
-            pixelArt.pixels[currentRow][currentCol] = color
-            
-            // Add neighboring pixels
-            stack.append((currentRow - 1, currentCol)) // Up
-            stack.append((currentRow + 1, currentCol)) // Down
-            stack.append((currentRow, currentCol - 1)) // Left
-            stack.append((currentRow, currentCol + 1)) // Right
-        }
-        
-        self.pixelArt = pixelArt
-        needsDisplay = true
-        delegate?.pixelArtCanvasDidChange(self)
-    }
-    
-    private func colorsEqual(_ color1: NSColor?, _ color2: NSColor) -> Bool {
-        guard let color1 = color1 else { return false }
-        
-        let rgb1 = color1.usingColorSpace(.deviceRGB)
-        let rgb2 = color2.usingColorSpace(.deviceRGB)
-        
-        guard let rgb1 = rgb1, let rgb2 = rgb2 else { return false }
-        
-        return abs(rgb1.redComponent - rgb2.redComponent) < 0.001 &&
-               abs(rgb1.greenComponent - rgb2.greenComponent) < 0.001 &&
-               abs(rgb1.blueComponent - rgb2.blueComponent) < 0.001 &&
-               abs(rgb1.alphaComponent - rgb2.alphaComponent) < 0.001
     }
     
     // MARK: - Helper Methods
