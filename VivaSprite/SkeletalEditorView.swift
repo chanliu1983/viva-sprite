@@ -32,9 +32,28 @@ class SkeletalEditorView: NSView {
     private var isIKMode = false
     private var ikChain: [Joint] = []
     
+    // Tool and canvas panning
+    enum SkeletalTool {
+        case select
+        case move
+        case addJointBone  // Unified mode for joint and bone creation
+        case delete
+    }
+    
+    var currentTool: SkeletalTool = .select
+    private var canvasOffset: simd_float2 = simd_float2(0, 0)
+    private var isPanning = false
+    private var lastPanPoint: simd_float2 = simd_float2(0, 0)
+    
     // Visual settings
     private let jointRadius: CGFloat = 8.0
     private let selectedJointRadius: CGFloat = 12.0
+    
+    // MARK: - First Responder
+    
+    override var acceptsFirstResponder: Bool {
+        return true
+    }
     private let boneWidth: CGFloat = 4.0
     private let selectedBoneWidth: CGFloat = 6.0
     
@@ -76,6 +95,9 @@ class SkeletalEditorView: NSView {
         // Draw grid
         drawGrid(context: context)
         
+        // Draw coordinate axes
+        drawCoordinateAxes(context: context)
+        
         // Draw bones first (so they appear behind joints)
         drawBones(context: context, skeleton: skeleton)
         
@@ -116,10 +138,86 @@ class SkeletalEditorView: NSView {
         context.strokePath()
     }
     
+    private func drawCoordinateAxes(context: CGContext) {
+        // Calculate origin position with canvas offset
+        let originX = CGFloat(canvasOffset.x)
+        let originY = CGFloat(canvasOffset.y)
+        
+        // Draw X and Y axes
+        context.setStrokeColor(NSColor.systemRed.cgColor)
+        context.setLineWidth(2.0)
+        
+        // X-axis (horizontal red line)
+        context.move(to: CGPoint(x: 0, y: originY))
+        context.addLine(to: CGPoint(x: bounds.width, y: originY))
+        
+        // Y-axis (vertical red line)
+        context.move(to: CGPoint(x: originX, y: 0))
+        context.addLine(to: CGPoint(x: originX, y: bounds.height))
+        
+        context.strokePath()
+        
+        // Draw origin marker (small circle)
+        context.setFillColor(NSColor.systemRed.cgColor)
+        let originRadius: CGFloat = 4.0
+        let originRect = CGRect(
+            x: originX - originRadius,
+            y: originY - originRadius,
+            width: originRadius * 2,
+            height: originRadius * 2
+        )
+        context.fillEllipse(in: originRect)
+        
+        // Draw axis labels
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.boldSystemFont(ofSize: 12),
+            .foregroundColor: NSColor.systemRed
+        ]
+        
+        // X-axis label
+        if originY >= 20 && originY <= bounds.height - 20 {
+            let xLabel = "X" as NSString
+            let xLabelSize = xLabel.size(withAttributes: attributes)
+            let xLabelRect = CGRect(
+                x: bounds.width - xLabelSize.width - 10,
+                y: originY - xLabelSize.height - 5,
+                width: xLabelSize.width,
+                height: xLabelSize.height
+            )
+            xLabel.draw(in: xLabelRect, withAttributes: attributes)
+        }
+        
+        // Y-axis label
+        if originX >= 20 && originX <= bounds.width - 20 {
+            let yLabel = "Y" as NSString
+            let yLabelSize = yLabel.size(withAttributes: attributes)
+            let yLabelRect = CGRect(
+                x: originX + 5,
+                y: bounds.height - yLabelSize.height - 10,
+                width: yLabelSize.width,
+                height: yLabelSize.height
+            )
+            yLabel.draw(in: yLabelRect, withAttributes: attributes)
+        }
+        
+        // Draw origin coordinates label
+        let originLabel = "(0,0)" as NSString
+        let originLabelSize = originLabel.size(withAttributes: attributes)
+        let originLabelRect = CGRect(
+            x: originX + 8,
+            y: originY + 8,
+            width: originLabelSize.width,
+            height: originLabelSize.height
+        )
+        originLabel.draw(in: originLabelRect, withAttributes: attributes)
+    }
+    
     private func drawBones(context: CGContext, skeleton: Skeleton) {
         for bone in skeleton.bones {
-            let startPos = bone.startJoint.worldPosition().cgPoint
-            let endPos = bone.endJoint.worldPosition().cgPoint
+            let startWorld = bone.startJoint.worldPosition()
+            let endWorld = bone.endJoint.worldPosition()
+            let startPos = CGPoint(x: CGFloat(startWorld.x + canvasOffset.x), y: CGFloat(startWorld.y + canvasOffset.y))
+            let endPos = CGPoint(x: CGFloat(endWorld.x + canvasOffset.x), y: CGFloat(endWorld.y + canvasOffset.y))
             
             let isSelected = selectedBone?.id == bone.id
             let isInIKChain = isIKMode && (ikChain.contains { $0.id == bone.startJoint.id } || ikChain.contains { $0.id == bone.endJoint.id })
@@ -161,7 +259,8 @@ class SkeletalEditorView: NSView {
     
     private func drawJoints(context: CGContext, skeleton: Skeleton) {
         for joint in skeleton.joints {
-            let position = joint.worldPosition().cgPoint
+            let worldPos = joint.worldPosition()
+            let position = CGPoint(x: CGFloat(worldPos.x + canvasOffset.x), y: CGFloat(worldPos.y + canvasOffset.y))
             let isSelected = selectedJoint?.id == joint.id
             let isInIKChain = isIKMode && ikChain.contains { $0.id == joint.id }
             
@@ -181,6 +280,19 @@ class SkeletalEditorView: NSView {
             
             context.fillEllipse(in: rect)
             context.strokeEllipse(in: rect)
+            
+            // Draw fixed indicator dot
+            if joint.isFixed {
+                context.setFillColor(NSColor.white.cgColor)
+                let dotRadius: CGFloat = radius * 0.3
+                let dotRect = CGRect(
+                    x: position.x - dotRadius,
+                    y: position.y - dotRadius,
+                    width: dotRadius * 2,
+                    height: dotRadius * 2
+                )
+                context.fillEllipse(in: dotRect)
+            }
             
             // Draw joint name
             let attributes: [NSAttributedString.Key: Any] = [
@@ -224,7 +336,7 @@ class SkeletalEditorView: NSView {
             
             // Draw pixel art preview (simplified)
             context.saveGState()
-            context.translateBy(x: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y))
+            context.translateBy(x: CGFloat(pixelArtPos.x + canvasOffset.x), y: CGFloat(pixelArtPos.y + canvasOffset.y))
             context.rotate(by: CGFloat(boneAngle))
             
             // Draw a simple rectangle representing the pixel art
@@ -270,21 +382,136 @@ class SkeletalEditorView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let worldPoint = simd_float2(Float(point.x), Float(point.y))
         
+        // Handle move tool for canvas panning
+        if currentTool == .move {
+            isPanning = true
+            lastPanPoint = worldPoint
+            return
+        }
+        
+        // Handle unified add joint/bone tool
+        if currentTool == .addJointBone {
+            guard let skeleton = skeleton else { return }
+            let adjustedPoint = worldPoint - canvasOffset
+            
+            if let clickedJoint = findJoint(at: adjustedPoint) {
+                if let startJoint = selectedJoint {
+                    if startJoint.id == clickedJoint.id {
+                        // Clicking the same joint again - deselect
+                        selectedJoint = nil
+                        selectedBone = nil
+                        delegate?.skeletalEditor(self, didSelectJoint: nil)
+                        delegate?.skeletalEditor(self, didSelectBone: nil)
+                    } else {
+                        // Clicking a different joint - create bone and deselect both
+                        let existingBone = skeleton.bones.first { bone in
+                            (bone.startJoint.id == startJoint.id && bone.endJoint.id == clickedJoint.id) ||
+                            (bone.startJoint.id == clickedJoint.id && bone.endJoint.id == startJoint.id)
+                        }
+                        
+                        if existingBone == nil {
+                            // When creating bones in IK mode, use current distance as original length
+                            // since joints might be displaced from their rest positions
+                            let currentDistance = simd_distance(startJoint.position, clickedJoint.position)
+                            let newBone = Bone(name: skeleton.boneName(from: startJoint, to: clickedJoint), 
+                                             start: startJoint, end: clickedJoint, 
+                                             originalLength: currentDistance)
+                            skeleton.addBone(newBone)
+                            
+                            // Rebuild IK chain if in IK mode and we have a selected joint
+                            if isIKMode, let selectedJoint = selectedJoint {
+                                buildIKChain(to: selectedJoint)
+                            }
+                            
+                            delegate?.skeletalEditor(self, didModifySkeleton: skeleton)
+                        }
+                        
+                        // Deselect both joints after bone creation
+                        selectedJoint = nil
+                        selectedBone = nil
+                        delegate?.skeletalEditor(self, didSelectJoint: nil)
+                        delegate?.skeletalEditor(self, didSelectBone: nil)
+                    }
+                } else {
+                    // No joint selected - select this joint
+                    selectedJoint = clickedJoint
+                    selectedBone = nil
+                    delegate?.skeletalEditor(self, didSelectJoint: clickedJoint)
+                }
+            } else {
+                // Clicked on empty space - create new joint
+                let newJoint = Joint(name: skeleton.nextJointName(), position: adjustedPoint)
+                skeleton.addJoint(newJoint)
+                
+                // Rebuild IK chain if in IK mode and we have a selected joint
+                if isIKMode, let selectedJoint = selectedJoint {
+                    buildIKChain(to: selectedJoint)
+                }
+                
+                selectedJoint = nil
+                selectedBone = nil
+                delegate?.skeletalEditor(self, didSelectJoint: nil)
+                delegate?.skeletalEditor(self, didModifySkeleton: skeleton)
+            }
+            
+            needsDisplay = true
+            return
+        }
+
+        
+        // Handle delete tool
+        if currentTool == .delete {
+            guard let skeleton = skeleton else { return }
+            let adjustedPoint = worldPoint - canvasOffset
+            
+            // Try to delete a joint first
+            if let joint = findJoint(at: adjustedPoint) {
+                // Remove all bones connected to this joint
+                let bonesToRemove = skeleton.bones.filter { bone in
+                    return bone.startJoint === joint || bone.endJoint === joint
+                }
+                for bone in bonesToRemove {
+                    skeleton.removeBone(bone)
+                }
+                
+                // Remove the joint
+                skeleton.removeJoint(joint)
+                selectedJoint = nil
+                selectedBone = nil
+                delegate?.skeletalEditor(self, didSelectJoint: nil)
+                delegate?.skeletalEditor(self, didModifySkeleton: skeleton)
+                needsDisplay = true
+                return
+            }
+            
+            // Try to delete a bone
+            if let bone = findBone(at: adjustedPoint) {
+                skeleton.removeBone(bone)
+                selectedBone = nil
+                delegate?.skeletalEditor(self, didSelectBone: nil)
+                delegate?.skeletalEditor(self, didModifySkeleton: skeleton)
+                needsDisplay = true
+                return
+            }
+        }
+        
         // Check for joint selection first
-        if let joint = findJoint(at: worldPoint) {
+        if let joint = findJoint(at: worldPoint - canvasOffset) {
             selectedJoint = joint
             selectedBone = nil
             delegate?.skeletalEditor(self, didSelectJoint: joint)
             
             if isIKMode {
                 buildIKChain(to: joint)
+                isDragging = true
+                dragOffset = joint.position - (worldPoint - canvasOffset)
             } else {
                 isDragging = true
-                dragOffset = joint.position - worldPoint
+                dragOffset = joint.position - (worldPoint - canvasOffset)
             }
         }
         // Then check for bone selection
-        else if let bone = findBone(at: worldPoint) {
+        else if let bone = findBone(at: worldPoint - canvasOffset) {
             selectedBone = bone
             selectedJoint = nil
             delegate?.skeletalEditor(self, didSelectBone: bone)
@@ -301,19 +528,40 @@ class SkeletalEditorView: NSView {
     }
     
     override func mouseDragged(with event: NSEvent) {
-        guard isDragging, let joint = selectedJoint, !joint.isFixed else { return }
-        
         let point = convert(event.locationInWindow, from: nil)
         let worldPoint = simd_float2(Float(point.x), Float(point.y))
         
-        if isIKMode && ikChain.count >= 2 {
-            // Perform IK solving
-            IKSolver.solveIK(chain: ikChain, target: worldPoint)
-            delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
+        // Handle canvas panning with move tool
+        if isPanning && currentTool == .move {
+            let delta = worldPoint - lastPanPoint
+            canvasOffset += delta
+            lastPanPoint = worldPoint
+            needsDisplay = true
+            return
+        }
+        
+        guard isDragging, let joint = selectedJoint else { return }
+        
+        if isIKMode {
+            // In IK mode, always use IK solving to maintain rigid bone lengths
+            // Only proceed if we have a valid IK chain and the joint is not fixed
+            if ikChain.count >= 2 && !joint.isFixed {
+                let targetPosition = (worldPoint - canvasOffset) + dragOffset
+                IKSolver.solveIK(chain: ikChain, target: targetPosition)
+                
+                // Recursively resolve connected chains to maintain bone rigidity
+                let modifiedJoints = Set(ikChain)
+                resolveConnectedChains(skeleton: skeleton!, modifiedJoints: modifiedJoints)
+                
+                delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
+            }
+            // If joint is fixed or no valid chain, do nothing (maintain rigidity)
         } else {
-            // Direct manipulation
-            joint.position = worldPoint + dragOffset
-            delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
+            // Direct manipulation only in non-IK mode
+            if !joint.isFixed {
+                joint.position = (worldPoint - canvasOffset) + dragOffset
+                delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
+            }
         }
         
         needsDisplay = true
@@ -321,18 +569,59 @@ class SkeletalEditorView: NSView {
     
     override func mouseUp(with event: NSEvent) {
         isDragging = false
+        isPanning = false
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+        
+        switch key {
+        case "s":
+            currentTool = .select
+        case "m":
+            currentTool = .move
+        case "a":
+            currentTool = .addJointBone
+        case "d":
+            currentTool = .delete
+        default:
+            super.keyDown(with: event)
+            return
+        }
+        
+        // Update the tool selection in the parent controller
+        if let parentController = findParentViewController() as? SkeletalDocumentViewController {
+            parentController.updateToolSelection(for: currentTool)
+        }
+        
+        needsDisplay = true
+    }
+    
+    private func findParentViewController() -> NSViewController? {
+        var responder = self.nextResponder
+        while responder != nil {
+            if let viewController = responder as? NSViewController {
+                return viewController
+            }
+            responder = responder?.nextResponder
+        }
+        return nil
     }
     
     override func rightMouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let worldPoint = simd_float2(Float(point.x), Float(point.y))
         
-        if let joint = findJoint(at: worldPoint) {
+        if let joint = findJoint(at: worldPoint - canvasOffset) {
             selectedJoint = joint
             needsDisplay = true
+            
+            // Show context menu
+            let menu = createContextMenu()
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        } else {
+            super.rightMouseDown(with: event)
         }
-        
-        super.rightMouseDown(with: event)
     }
     
     // MARK: - Double Click Handling
@@ -392,19 +681,117 @@ class SkeletalEditorView: NSView {
         return simd_distance(point, projection)
     }
     
-    private func buildIKChain(to endJoint: Joint) {
+    private func buildIKChain(to targetJoint: Joint) {
         ikChain.removeAll()
+        guard let skeleton = skeleton else { return }
         
-        var current: Joint? = endJoint
-        while let joint = current {
-            ikChain.insert(joint, at: 0)
-            current = joint.parent
+        // Build chain with target joint at the END (required for IK solver)
+        var visited = Set<Joint>()
+        var chain = [Joint]()
+        visited.insert(targetJoint)
+        
+        // First, extend backwards from target joint to find the root
+        var current = targetJoint
+        var backwardChain = [targetJoint]
+        
+        while let connectedJoint = findConnectedJoint(to: current, in: skeleton, excluding: visited) {
+            backwardChain.insert(connectedJoint, at: 0)
+            visited.insert(connectedJoint)
+            current = connectedJoint
+            if backwardChain.count >= 10 { break }
+        }
+        
+        // The backward chain now has root at index 0 and target joint at the end
+        chain = backwardChain
+        
+        // Optionally extend forward from target joint (but keep target at end)
+        current = targetJoint
+        var forwardExtension = [Joint]()
+        
+        while let connectedJoint = findConnectedJoint(to: current, in: skeleton, excluding: visited) {
+            forwardExtension.append(connectedJoint)
+            visited.insert(connectedJoint)
+            current = connectedJoint
+            if chain.count + forwardExtension.count >= 10 { break }
+        }
+        
+        // If we found forward extensions, we need to choose the best chain
+        // For IK to work correctly, we want the target joint at the END
+        if !forwardExtension.isEmpty {
+            // Use the forward extension as the main chain with target joint in the middle
+            // But we need target at the end, so we'll use the backward chain instead
+            // This ensures the selected joint is always the end effector
+        }
+        
+        ikChain = chain
+    }
+    
+    private func findConnectedJoint(to joint: Joint, in skeleton: Skeleton, excluding visited: Set<Joint>) -> Joint? {
+        for bone in skeleton.bones {
+            if bone.startJoint === joint && !visited.contains(bone.endJoint) {
+                return bone.endJoint
+            } else if bone.endJoint === joint && !visited.contains(bone.startJoint) {
+                return bone.startJoint
+            }
+        }
+        return nil
+    }
+    
+    /// Recursively resolve IK for connected chains when joints are modified
+    private func resolveConnectedChains(skeleton: Skeleton, modifiedJoints: Set<Joint>, depth: Int = 0) {
+        // Prevent infinite recursion
+        guard depth < 2 else { return }
+        
+        // Instead of creating new IK chains, just enforce bone lengths directly
+        // This prevents conflicting IK solutions that can cause bone length changes
+        for joint in modifiedJoints {
+            let connectedBones = skeleton.bones.filter { bone in
+                bone.startJoint === joint || bone.endJoint === joint
+            }
+            
+            for bone in connectedBones {
+                let currentLength = simd_distance(bone.startJoint.position, bone.endJoint.position)
+                let expectedLength = bone.originalLength
+                
+                // Only correct significant deviations to avoid micro-adjustments
+                if abs(currentLength - expectedLength) > 0.5 {
+                    // Determine which joint to move (prefer non-fixed joints)
+                    let shouldMoveEndJoint = !bone.endJoint.isFixed && (bone.startJoint.isFixed || modifiedJoints.contains(bone.startJoint))
+                    
+                    if shouldMoveEndJoint {
+                        // Move end joint to maintain bone length
+                        let direction = simd_normalize(bone.endJoint.position - bone.startJoint.position)
+                        bone.endJoint.position = bone.startJoint.position + direction * expectedLength
+                    } else if !bone.startJoint.isFixed && !modifiedJoints.contains(bone.endJoint) {
+                        // Move start joint to maintain bone length
+                        let direction = simd_normalize(bone.startJoint.position - bone.endJoint.position)
+                        bone.startJoint.position = bone.endJoint.position + direction * expectedLength
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Build an IK chain starting from a specific joint
+    private func buildChainFrom(joint: Joint, skeleton: Skeleton) -> [Joint] {
+        var chain = [joint]
+        var visited = Set<Joint>()
+        visited.insert(joint)
+        var current = joint
+        
+        // Build chain by following bone connections
+        while let connectedJoint = findConnectedJoint(to: current, in: skeleton, excluding: visited) {
+            chain.append(connectedJoint)
+            visited.insert(connectedJoint)
+            current = connectedJoint
             
             // Limit chain length for performance
-            if ikChain.count >= 10 {
+            if chain.count >= 5 {
                 break
             }
         }
+        
+        return chain
     }
     
     private func openPixelArtEditor(for bone: Bone) {
@@ -419,6 +806,12 @@ class SkeletalEditorView: NSView {
         isIKMode.toggle()
         if !isIKMode {
             ikChain.removeAll()
+        } else {
+            // When entering IK mode, switch to select tool
+            currentTool = .select
+            if let parentController = findParentViewController() as? SkeletalDocumentViewController {
+                parentController.updateToolSelection(for: currentTool)
+            }
         }
         needsDisplay = true
     }
@@ -429,6 +822,11 @@ class SkeletalEditorView: NSView {
         let joint = Joint(name: name, position: position)
         skeleton.addJoint(joint)
         
+        // Rebuild IK chain if in IK mode and we have a selected joint
+        if isIKMode, let selectedJoint = selectedJoint {
+            buildIKChain(to: selectedJoint)
+        }
+        
         delegate?.skeletalEditor(self, didModifySkeleton: skeleton)
         needsDisplay = true
     }
@@ -436,11 +834,15 @@ class SkeletalEditorView: NSView {
     func addBone(from startJoint: Joint, to endJoint: Joint, name: String) {
         guard let skeleton = skeleton else { return }
         
-        let bone = Bone(name: name, start: startJoint, end: endJoint)
+        // Use current distance as original length since joints might be displaced in IK mode
+        let currentDistance = simd_distance(startJoint.position, endJoint.position)
+        let bone = Bone(name: name, start: startJoint, end: endJoint, originalLength: currentDistance)
         skeleton.addBone(bone)
         
-        // Establish parent-child relationship
-        startJoint.addChild(endJoint)
+        // Rebuild IK chain if in IK mode and we have a selected joint
+        if isIKMode, let selectedJoint = selectedJoint {
+            buildIKChain(to: selectedJoint)
+        }
         
         delegate?.skeletalEditor(self, didModifySkeleton: skeleton)
         needsDisplay = true
@@ -452,9 +854,17 @@ class SkeletalEditorView: NSView {
         if let joint = selectedJoint {
             skeleton.removeJoint(joint)
             selectedJoint = nil
+            // Clear IK chain since selected joint was deleted
+            if isIKMode {
+                ikChain.removeAll()
+            }
         } else if let bone = selectedBone {
             skeleton.removeBone(bone)
             selectedBone = nil
+            // Rebuild IK chain if in IK mode and we have a selected joint
+            if isIKMode, let selectedJoint = selectedJoint {
+                buildIKChain(to: selectedJoint)
+            }
         }
         
         delegate?.skeletalEditor(self, didModifySkeleton: skeleton)

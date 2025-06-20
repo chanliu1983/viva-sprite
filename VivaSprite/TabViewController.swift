@@ -22,7 +22,7 @@ class TabViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTabView()
-        createNewDocument(type: .pixelArt) // Create initial document
+        createNewDocument(type: .skeletal) // Create initial document
     }
     
     private func setupTabView() {
@@ -43,7 +43,7 @@ class TabViewController: NSViewController {
         view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
     }
     
-    func createNewDocument(type: DocumentType = .pixelArt) {
+    func createNewDocument(type: DocumentType = .skeletal) {
         let storyboard = NSStoryboard(name: "Document", bundle: nil)
         
         let documentVC: NSViewController
@@ -175,7 +175,7 @@ class TabViewController: NSViewController {
         
         // If no documents left, create a new one
         if documentControllers.isEmpty {
-            createNewDocument(type: .pixelArt)
+            createNewDocument(type: .skeletal)
         }
     }
     

@@ -11,15 +11,12 @@ import simd
 // MARK: - Core Data Structures
 
 /// Represents a joint in the skeletal system
-class Joint {
+class Joint: Hashable {
     let id: UUID
     var name: String
     var position: simd_float2
     var rotation: Float = 0.0
     var isFixed: Bool = false
-    
-    weak var parent: Joint?
-    var children: [Joint] = []
     
     // IK constraints
     var minAngle: Float = -Float.pi
@@ -32,28 +29,24 @@ class Joint {
         self.position = position
     }
     
-    func addChild(_ child: Joint) {
-        child.parent = self
-        children.append(child)
-    }
-    
-    func removeChild(_ child: Joint) {
-        child.parent = nil
-        children.removeAll { $0.id == child.id }
-    }
-    
-    /// Get world position considering parent transformations
+    /// Get world position (simplified - just return local position)
     func worldPosition() -> simd_float2 {
-        guard let parent = parent else { return position }
-        let parentWorld = parent.worldPosition()
-        let rotatedPos = rotateVector(position, by: parent.rotation)
-        return parentWorld + rotatedPos
+        return position
     }
     
-    /// Get world rotation considering parent rotations
+    /// Get world rotation (simplified - just return local rotation)
     func worldRotation() -> Float {
-        guard let parent = parent else { return rotation }
-        return parent.worldRotation() + rotation
+        return rotation
+    }
+    
+    // MARK: - Hashable Conformance
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: Joint, rhs: Joint) -> Bool {
+        return lhs.id == rhs.id
     }
 }
 
@@ -66,12 +59,24 @@ class Bone {
     var pixelArt: PixelArtData?
     var thickness: Float = 10.0
     var color: NSColor = .brown
+    var originalLength: Float // Store the original bone length
     
     init(name: String, start: Joint, end: Joint) {
         self.id = UUID()
         self.name = name
         self.startJoint = start
         self.endJoint = end
+        // Calculate and store the original length when bone is created
+        let diff = end.position - start.position
+        self.originalLength = simd_length(diff)
+    }
+    
+    init(name: String, start: Joint, end: Joint, originalLength: Float) {
+        self.id = UUID()
+        self.name = name
+        self.startJoint = start
+        self.endJoint = end
+        self.originalLength = originalLength
     }
     
     var length: Float {
@@ -129,9 +134,6 @@ class Skeleton {
         // Remove associated bones
         bones.removeAll { $0.startJoint.id == joint.id || $0.endJoint.id == joint.id }
         
-        // Remove from parent
-        joint.parent?.removeChild(joint)
-        
         // Remove from joints array
         joints.removeAll { $0.id == joint.id }
         
@@ -163,6 +165,42 @@ class Skeleton {
             }
         }
     }
+    
+    /// Generate next available joint name with incremental numbering
+    func nextJointName() -> String {
+        var counter = 1
+        while joints.contains(where: { $0.name == "Joint \(counter)" }) {
+            counter += 1
+        }
+        return "Joint \(counter)"
+    }
+    
+    /// Generate next available bone name with incremental numbering
+    func nextBoneName() -> String {
+        var counter = 1
+        while bones.contains(where: { $0.name == "Bone \(counter)" }) {
+            counter += 1
+        }
+        return "Bone \(counter)"
+    }
+    
+    /// Generate bone name based on joint indices (e.g., "Bone 1-3")
+    func boneName(from startJoint: Joint, to endJoint: Joint) -> String {
+        let startIndex = getJointIndex(startJoint) ?? 0
+        let endIndex = getJointIndex(endJoint) ?? 0
+        return "Bone \(startIndex)-\(endIndex)"
+    }
+    
+    /// Get the display index of a joint (1-based)
+    private func getJointIndex(_ joint: Joint) -> Int? {
+        // Extract number from joint name like "Joint 1", "Joint 2", etc.
+        let name = joint.name
+        if name.hasPrefix("Joint ") {
+            let numberString = String(name.dropFirst(6)) // Remove "Joint "
+            return Int(numberString)
+        }
+        return nil
+    }
 }
 
 // MARK: - IK Solver
@@ -170,61 +208,95 @@ class Skeleton {
 class IKSolver {
     
     /// Solve IK using FABRIK (Forward And Backward Reaching Inverse Kinematics)
-    static func solveIK(chain: [Joint], target: simd_float2, iterations: Int = 10, tolerance: Float = 0.01) {
+    static func solveIK(chain: [Joint], target: simd_float2, iterations: Int = 20, tolerance: Float = 0.01) {
         guard chain.count >= 2 else { return }
-        
         // Store original positions
         let originalPositions = chain.map { $0.position }
-        
         // Calculate bone lengths
         var boneLengths: [Float] = []
         for i in 0..<chain.count - 1 {
             let length = simd_distance(chain[i].position, chain[i + 1].position)
             boneLengths.append(length)
         }
-        
         let totalLength = boneLengths.reduce(0, +)
         let distanceToTarget = simd_distance(chain[0].position, target)
-        
-        // Check if target is reachable
+        // If target is unreachable, don't move any joints to maintain bone rigidity
         if distanceToTarget > totalLength {
-            // Target is too far, stretch towards it
-            let direction = simd_normalize(target - chain[0].position)
-            var currentPos = chain[0].position
-            
-            for i in 1..<chain.count {
-                currentPos += direction * boneLengths[i - 1]
-                chain[i].position = currentPos
+            // Restore all joints to their original positions to maintain rigid bone lengths
+            for i in 0..<chain.count {
+                chain[i].position = originalPositions[i]
             }
             return
         }
-        
-        // FABRIK algorithm
+        // FABRIK iterations
         for _ in 0..<iterations {
-            // Forward reaching
-            chain[chain.count - 1].position = target
-            
+            // 1. Forward reaching
+            if !chain[chain.count - 1].isFixed {
+                chain[chain.count - 1].position = target
+            }
             for i in stride(from: chain.count - 2, through: 0, by: -1) {
-                let direction = simd_normalize(chain[i].position - chain[i + 1].position)
-                chain[i].position = chain[i + 1].position + direction * boneLengths[i]
+                if chain[i].isFixed { 
+                    // Keep fixed joints at their original positions
+                    chain[i].position = originalPositions[i]
+                    continue 
+                }
+                let dir = simd_normalize(chain[i].position - chain[i + 1].position)
+                chain[i].position = chain[i + 1].position + dir * boneLengths[i]
             }
-            
-            // Backward reaching
-            chain[0].position = originalPositions[0] // Keep root fixed
-            
+            // 2. Backward reaching
+            // Only reset root if it's actually fixed, otherwise keep it free
+            if chain[0].isFixed {
+                chain[0].position = originalPositions[0]
+            }
+
             for i in 1..<chain.count {
-                let direction = simd_normalize(chain[i].position - chain[i - 1].position)
-                chain[i].position = chain[i - 1].position + direction * boneLengths[i - 1]
+                if chain[i].isFixed { continue }
+                let dir = simd_normalize(chain[i].position - chain[i - 1].position)
+                chain[i].position = chain[i - 1].position + dir * boneLengths[i - 1]
             }
-            
             // Check convergence
             if simd_distance(chain[chain.count - 1].position, target) < tolerance {
                 break
             }
         }
+        // Final pass: enforce bone lengths while respecting fixed joints
+        // Do this in both directions to ensure all bones maintain correct length
+        for i in 1..<chain.count {
+            if chain[i].isFixed { 
+                // Keep fixed joints at their original positions
+                chain[i].position = originalPositions[i]
+                continue 
+            }
+            let dir = simd_normalize(chain[i].position - chain[i - 1].position)
+            chain[i].position = chain[i - 1].position + dir * boneLengths[i - 1]
+        }
+        
+        // Backward pass to ensure bone lengths are maintained
+        for i in stride(from: chain.count - 2, through: 0, by: -1) {
+            if chain[i].isFixed { 
+                // Keep fixed joints at their original positions
+                chain[i].position = originalPositions[i]
+                continue 
+            }
+            let dir = simd_normalize(chain[i].position - chain[i + 1].position)
+            chain[i].position = chain[i + 1].position + dir * boneLengths[i]
+        }
         
         // Apply angle constraints
         applyAngleConstraints(chain: chain)
+        
+        // Final validation: ensure all bone lengths are exactly correct
+        for i in 1..<chain.count {
+            if chain[i].isFixed { continue }
+            let currentLength = simd_distance(chain[i].position, chain[i - 1].position)
+            let expectedLength = boneLengths[i - 1]
+            
+            // If length deviation is significant, correct it
+            if abs(currentLength - expectedLength) > 0.001 {
+                let dir = simd_normalize(chain[i].position - chain[i - 1].position)
+                chain[i].position = chain[i - 1].position + dir * expectedLength
+            }
+        }
     }
     
     private static func applyAngleConstraints(chain: [Joint]) {
@@ -243,6 +315,84 @@ class IKSolver {
                 joint.position = parent.position + simd_float2(cos(clampedAngle), sin(clampedAngle)) * length
             }
         }
+    }
+}
+
+// MARK: - Serializable Data Structures for Save/Load
+
+struct SkeletonData: Codable {
+    let name: String
+    let rootJointId: String?
+    let joints: [JointData]
+    let bones: [BoneData]
+    
+    init(from skeleton: Skeleton) {
+        self.name = skeleton.name
+        self.rootJointId = skeleton.rootJoint?.id.uuidString
+        self.joints = skeleton.joints.map { JointData(from: $0) }
+        self.bones = skeleton.bones.map { BoneData(from: $0) }
+    }
+}
+
+struct JointData: Codable {
+    let id: String
+    let name: String
+    let position: Vector2Data
+    let rotation: Float
+    let isFixed: Bool
+    let minAngle: Float
+    let maxAngle: Float
+    let hasAngleConstraints: Bool
+    
+    init(from joint: Joint) {
+        self.id = joint.id.uuidString
+        self.name = joint.name
+        self.position = Vector2Data(x: joint.position.x, y: joint.position.y)
+        self.rotation = joint.rotation
+        self.isFixed = joint.isFixed
+        self.minAngle = joint.minAngle
+        self.maxAngle = joint.maxAngle
+        self.hasAngleConstraints = joint.hasAngleConstraints
+    }
+}
+
+struct BoneData: Codable {
+    let id: String
+    let name: String
+    let startJointId: String
+    let endJointId: String
+    let thickness: Float
+    let color: ColorData
+    let originalLength: Float?
+    
+    init(from bone: Bone) {
+        self.id = bone.id.uuidString
+        self.name = bone.name
+        self.startJointId = bone.startJoint.id.uuidString
+        self.endJointId = bone.endJoint.id.uuidString
+        self.thickness = bone.thickness
+        self.color = ColorData(from: bone.color)
+        self.originalLength = bone.originalLength
+    }
+}
+
+struct Vector2Data: Codable {
+    let x: Float
+    let y: Float
+}
+
+struct ColorData: Codable {
+    let r: Float
+    let g: Float
+    let b: Float
+    let a: Float
+    
+    init(from color: NSColor) {
+        let rgbColor = color.usingColorSpace(.sRGB) ?? color
+        self.r = Float(rgbColor.redComponent)
+        self.g = Float(rgbColor.greenComponent)
+        self.b = Float(rgbColor.blueComponent)
+        self.a = Float(rgbColor.alphaComponent)
     }
 }
 

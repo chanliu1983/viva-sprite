@@ -9,68 +9,46 @@ import Cocoa
 
 class SkeletalHierarchyDataSource: NSObject, NSOutlineViewDataSource {
     
-    private let skeleton: Skeleton
+    private var skeleton: Skeleton
     
     init(skeleton: Skeleton) {
         self.skeleton = skeleton
         super.init()
     }
     
+    func updateSkeleton(_ newSkeleton: Skeleton) {
+        self.skeleton = newSkeleton
+    }
+    
     // MARK: - NSOutlineViewDataSource
     
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         if item == nil {
-            // Root level - show root joints
-            return skeleton.joints.filter { $0.parent == nil }.count
+            // Root level - show all joints and bones in flat structure
+            return skeleton.joints.count + skeleton.bones.count
         }
         
-        if let joint = item as? Joint {
-            // Show child joints and bones connected to this joint
-            let childJoints = joint.children.count
-            let connectedBones = skeleton.bones.filter { $0.startJoint.id == joint.id || $0.endJoint.id == joint.id }.count
-            return childJoints + connectedBones
-        }
-        
-        if let bone = item as? Bone {
-            // Bones don't have children in this hierarchy
-            return 0
-        }
-        
+        // No hierarchy - all items are at root level
         return 0
     }
     
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
         if item == nil {
-            // Root level - return root joints
-            let rootJoints = skeleton.joints.filter { $0.parent == nil }
-            return rootJoints[index]
-        }
-        
-        if let joint = item as? Joint {
-            // Return child joints first, then connected bones
-            let childJoints = joint.children
-            let connectedBones = skeleton.bones.filter { $0.startJoint.id == joint.id || $0.endJoint.id == joint.id }
-            
-            if index < childJoints.count {
-                return childJoints[index]
+            // Root level - return joints first, then bones
+            if index < skeleton.joints.count {
+                return skeleton.joints[index]
             } else {
-                let boneIndex = index - childJoints.count
-                return connectedBones[boneIndex]
+                let boneIndex = index - skeleton.joints.count
+                return skeleton.bones[boneIndex]
             }
         }
         
-        // This shouldn't happen for bones since they don't have children
+        // No hierarchy - shouldn't reach here
         return NSNull()
     }
     
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        if let joint = item as? Joint {
-            let childJoints = joint.children.count
-            let connectedBones = skeleton.bones.filter { $0.startJoint.id == joint.id || $0.endJoint.id == joint.id }.count
-            return (childJoints + connectedBones) > 0
-        }
-        
-        // Bones are not expandable
+        // No hierarchy - nothing is expandable
         return false
     }
     
