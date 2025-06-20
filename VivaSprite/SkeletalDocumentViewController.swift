@@ -237,9 +237,19 @@ class SkeletalDocumentViewController: NSViewController {
         propertiesStackView = NSStackView()
         propertiesStackView.orientation = .vertical
         propertiesStackView.alignment = .leading
+        propertiesStackView.distribution = .fill
         propertiesStackView.spacing = 8
+        propertiesStackView.translatesAutoresizingMaskIntoConstraints = false
         
         propertiesScrollView.documentView = propertiesStackView
+        
+        // Ensure the stack view fills the scroll view width
+        NSLayoutConstraint.activate([
+            propertiesStackView.leadingAnchor.constraint(equalTo: propertiesScrollView.leadingAnchor),
+            propertiesStackView.trailingAnchor.constraint(equalTo: propertiesScrollView.trailingAnchor),
+            propertiesStackView.topAnchor.constraint(equalTo: propertiesScrollView.topAnchor),
+            propertiesStackView.widthAnchor.constraint(equalTo: propertiesScrollView.widthAnchor)
+        ])
         leftStackView.addArrangedSubview(propertiesScrollView)
         
         // Add panels to split view
@@ -255,7 +265,7 @@ class SkeletalDocumentViewController: NSViewController {
             splitView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
             // Left panel constraints
-            leftPanel.widthAnchor.constraint(equalToConstant: 250),
+            leftPanel.widthAnchor.constraint(equalToConstant: 350),
             leftStackView.topAnchor.constraint(equalTo: leftPanel.topAnchor, constant: 8),
             leftStackView.leadingAnchor.constraint(equalTo: leftPanel.leadingAnchor, constant: 8),
             leftStackView.trailingAnchor.constraint(equalTo: leftPanel.trailingAnchor, constant: -8),
@@ -268,15 +278,15 @@ class SkeletalDocumentViewController: NSViewController {
             skeletalEditorView.bottomAnchor.constraint(equalTo: rightPanel.bottomAnchor),
             
             // Tool control width
-            toolPopUpButton.widthAnchor.constraint(equalToConstant: 234),
-            modeSegmentedControl.widthAnchor.constraint(equalToConstant: 234),
+            toolPopUpButton.widthAnchor.constraint(equalToConstant: 334),
+            modeSegmentedControl.widthAnchor.constraint(equalToConstant: 334),
             
             // Scroll view heights
             propertiesScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
         ])
         
         // Set split view position
-        splitView.setPosition(250, ofDividerAt: 0)
+        splitView.setPosition(350, ofDividerAt: 0)
     }
     
 
@@ -368,19 +378,14 @@ class SkeletalDocumentViewController: NSViewController {
             setupJointProperties(joint)
         } else if let bone = selectedBone {
             setupBoneProperties(bone)
-        } else {
-            setupSkeletonProperties()
         }
+        // When nothing is selected, leave the properties panel empty
     }
     
     private func setupJointProperties(_ joint: Joint) {
-        print("Setting up joint properties for: \(joint.name)")
-        print("Properties stack view subviews before: \(propertiesStackView.arrangedSubviews.count)")
-        
         let titleLabel = NSTextField(labelWithString: "Joint Properties")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 14)
         propertiesStackView.addArrangedSubview(titleLabel)
-        print("Added title label")
         
         // Name
         let nameContainer = createPropertyRow(label: "Name:", control: {
@@ -388,37 +393,31 @@ class SkeletalDocumentViewController: NSViewController {
             textField.stringValue = joint.name
             textField.target = self
             textField.action = #selector(jointNameChanged(_:))
-            print("Created name text field with value: \(joint.name)")
             return textField
         }())
         propertiesStackView.addArrangedSubview(nameContainer)
-        print("Added name container")
         
-        print("Properties stack view subviews after name: \(propertiesStackView.arrangedSubviews.count)")
-        
-        // Position
-        let positionContainer = createPropertyRow(label: "Position:", control: {
-            let stackView = NSStackView()
-            stackView.orientation = .horizontal
-            stackView.spacing = 4
-            
+        // Position X
+        let positionXContainer = createPropertyRow(label: "Position X:", control: {
             let xField = NSTextField()
             xField.doubleValue = Double(joint.position.x)
             xField.target = self
             xField.action = #selector(jointPositionChanged(_:))
             xField.tag = 0
-            
+            return xField
+        }())
+        propertiesStackView.addArrangedSubview(positionXContainer)
+        
+        // Position Y
+        let positionYContainer = createPropertyRow(label: "Position Y:", control: {
             let yField = NSTextField()
             yField.doubleValue = Double(joint.position.y)
             yField.target = self
             yField.action = #selector(jointPositionChanged(_:))
             yField.tag = 1
-            
-            stackView.addArrangedSubview(xField)
-            stackView.addArrangedSubview(yField)
-            return stackView
+            return yField
         }())
-        propertiesStackView.addArrangedSubview(positionContainer)
+        propertiesStackView.addArrangedSubview(positionYContainer)
         
         // Fixed checkbox
         let fixedContainer = createPropertyRow(label: "Fixed:", control: {
@@ -522,10 +521,19 @@ class SkeletalDocumentViewController: NSViewController {
         container.orientation = .horizontal
         container.spacing = 8
         container.alignment = .centerY
+        container.distribution = .fill
         
         let labelView = NSTextField(labelWithString: label)
         labelView.setContentHuggingPriority(.required, for: .horizontal)
-        labelView.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        labelView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        labelView.widthAnchor.constraint(equalToConstant: 100).isActive = true
+        
+        control.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        
+        // Ensure the control has a minimum width to display content properly
+        if let textField = control as? NSTextField {
+            textField.widthAnchor.constraint(greaterThanOrEqualToConstant: 150).isActive = true
+        }
         
         container.addArrangedSubview(labelView)
         container.addArrangedSubview(control)

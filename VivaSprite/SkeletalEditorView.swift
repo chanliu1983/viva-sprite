@@ -354,16 +354,30 @@ class SkeletalEditorView: NSView {
     private func drawIKChain(context: CGContext) {
         guard ikChain.count >= 2 else { return }
         
+        // Only draw IK chain lines for joints that are NOT connected by bones
+        // This prevents the dotted line from appearing over existing bones
         context.setStrokeColor(ikChainColor.cgColor)
-        context.setLineWidth(3.0)
-        context.setLineDash(phase: 0, lengths: [5, 5])
+        context.setLineWidth(2.0)
+        context.setLineDash(phase: 0, lengths: [3, 3])
         
         for i in 0..<ikChain.count - 1 {
-            let startPos = ikChain[i].worldPosition().cgPoint
-            let endPos = ikChain[i + 1].worldPosition().cgPoint
+            let joint1 = ikChain[i]
+            let joint2 = ikChain[i + 1]
             
-            context.move(to: startPos)
-            context.addLine(to: endPos)
+            // Check if there's already a bone connecting these joints
+            let hasBone = skeleton?.bones.contains { bone in
+                (bone.startJoint === joint1 && bone.endJoint === joint2) ||
+                (bone.startJoint === joint2 && bone.endJoint === joint1)
+            } ?? false
+            
+            // Only draw dotted line if no bone exists between these joints
+            if !hasBone {
+                let startPos = joint1.worldPosition().cgPoint
+                let endPos = joint2.worldPosition().cgPoint
+                
+                context.move(to: startPos)
+                context.addLine(to: endPos)
+            }
         }
         
         context.strokePath()
@@ -547,7 +561,7 @@ class SkeletalEditorView: NSView {
             // Only proceed if we have a valid IK chain and the joint is not fixed
             if ikChain.count >= 2 && !joint.isFixed {
                 let targetPosition = (worldPoint - canvasOffset) + dragOffset
-                IKSolver.solveIK(chain: ikChain, target: targetPosition)
+                IKSolver.solveIK(chain: ikChain, target: targetPosition, skeleton: skeleton!)
                 
                 // Recursively resolve connected chains to maintain bone rigidity
                 let modifiedJoints = Set(ikChain)
@@ -630,7 +644,10 @@ class SkeletalEditorView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         let worldPoint = simd_float2(Float(point.x), Float(point.y))
         
-        if let bone = findBone(at: worldPoint) {
+        // Adjust for canvas offset like other mouse handling methods
+        let adjustedPoint = worldPoint - canvasOffset
+        
+        if let bone = findBone(at: adjustedPoint) {
             openPixelArtEditor(for: bone)
         }
     }
@@ -740,10 +757,11 @@ class SkeletalEditorView: NSView {
     /// Recursively resolve IK for connected chains when joints are modified
     private func resolveConnectedChains(skeleton: Skeleton, modifiedJoints: Set<Joint>, depth: Int = 0) {
         // Prevent infinite recursion
-        guard depth < 2 else { return }
+        guard depth < 3 else { return }
         
-        // Instead of creating new IK chains, just enforce bone lengths directly
-        // This prevents conflicting IK solutions that can cause bone length changes
+        var newlyModifiedJoints = Set<Joint>()
+        
+        // Enforce bone lengths for all bones connected to modified joints
         for joint in modifiedJoints {
             let connectedBones = skeleton.bones.filter { bone in
                 bone.startJoint === joint || bone.endJoint === joint
@@ -753,22 +771,30 @@ class SkeletalEditorView: NSView {
                 let currentLength = simd_distance(bone.startJoint.position, bone.endJoint.position)
                 let expectedLength = bone.originalLength
                 
-                // Only correct significant deviations to avoid micro-adjustments
-                if abs(currentLength - expectedLength) > 0.5 {
-                    // Determine which joint to move (prefer non-fixed joints)
-                    let shouldMoveEndJoint = !bone.endJoint.isFixed && (bone.startJoint.isFixed || modifiedJoints.contains(bone.startJoint))
+                // Use a smaller tolerance to be more strict about bone lengths
+                if abs(currentLength - expectedLength) > 0.1 {
+                    // Determine which joint to move (prefer non-fixed joints not in IK chain)
+                    let startInIKChain = ikChain.contains { $0 === bone.startJoint }
+                    let endInIKChain = ikChain.contains { $0 === bone.endJoint }
                     
-                    if shouldMoveEndJoint {
+                    if !bone.endJoint.isFixed && !endInIKChain && (bone.startJoint.isFixed || startInIKChain || modifiedJoints.contains(bone.startJoint)) {
                         // Move end joint to maintain bone length
                         let direction = simd_normalize(bone.endJoint.position - bone.startJoint.position)
                         bone.endJoint.position = bone.startJoint.position + direction * expectedLength
-                    } else if !bone.startJoint.isFixed && !modifiedJoints.contains(bone.endJoint) {
+                        newlyModifiedJoints.insert(bone.endJoint)
+                    } else if !bone.startJoint.isFixed && !startInIKChain && (bone.endJoint.isFixed || endInIKChain || modifiedJoints.contains(bone.endJoint)) {
                         // Move start joint to maintain bone length
                         let direction = simd_normalize(bone.startJoint.position - bone.endJoint.position)
                         bone.startJoint.position = bone.endJoint.position + direction * expectedLength
+                        newlyModifiedJoints.insert(bone.startJoint)
                     }
                 }
             }
+        }
+        
+        // Recursively resolve newly modified joints
+        if !newlyModifiedJoints.isEmpty {
+            resolveConnectedChains(skeleton: skeleton, modifiedJoints: newlyModifiedJoints, depth: depth + 1)
         }
     }
     
@@ -807,6 +833,14 @@ class SkeletalEditorView: NSView {
         if !isIKMode {
             ikChain.removeAll()
         } else {
+            // When entering IK mode, update all bone original lengths to current lengths
+            // This ensures that any changes made in Direct mode are preserved
+            if let skeleton = skeleton {
+                for bone in skeleton.bones {
+                    bone.originalLength = bone.length
+                }
+            }
+            
             // When entering IK mode, switch to select tool
             currentTool = .select
             if let parentController = findParentViewController() as? SkeletalDocumentViewController {

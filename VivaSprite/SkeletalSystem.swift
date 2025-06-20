@@ -207,16 +207,30 @@ class Skeleton {
 
 class IKSolver {
     
+    /// Find the bone connecting two joints
+    private static func findBone(between joint1: Joint, and joint2: Joint, in skeleton: Skeleton) -> Bone? {
+        return skeleton.bones.first { bone in
+            (bone.startJoint === joint1 && bone.endJoint === joint2) ||
+            (bone.startJoint === joint2 && bone.endJoint === joint1)
+        }
+    }
+    
     /// Solve IK using FABRIK (Forward And Backward Reaching Inverse Kinematics)
-    static func solveIK(chain: [Joint], target: simd_float2, iterations: Int = 20, tolerance: Float = 0.01) {
+    static func solveIK(chain: [Joint], target: simd_float2, skeleton: Skeleton, iterations: Int = 20, tolerance: Float = 0.01) {
         guard chain.count >= 2 else { return }
         // Store original positions
         let originalPositions = chain.map { $0.position }
-        // Calculate bone lengths
+        // Calculate bone lengths using originalLength from Bone objects
         var boneLengths: [Float] = []
         for i in 0..<chain.count - 1 {
-            let length = simd_distance(chain[i].position, chain[i + 1].position)
-            boneLengths.append(length)
+            // Find the bone connecting these two joints and use its originalLength
+            if let bone = findBone(between: chain[i], and: chain[i + 1], in: skeleton) {
+                boneLengths.append(bone.originalLength)
+            } else {
+                // Fallback to current distance if no bone found (shouldn't happen in normal cases)
+                let length = simd_distance(chain[i].position, chain[i + 1].position)
+                boneLengths.append(length)
+            }
         }
         let totalLength = boneLengths.reduce(0, +)
         let distanceToTarget = simd_distance(chain[0].position, target)
