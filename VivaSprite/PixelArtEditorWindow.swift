@@ -423,11 +423,19 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
         return false
     }
     
-    @objc private func savePixelArt() {
+    @objc func savePixelArt() {
         print("Save button clicked - saving pixel art")
         updateBone()
         print("Data saved, closing window")
-        window?.close()
+        
+        // Check if this window is presented as a sheet
+        if let parentWindow = window?.sheetParent {
+            print("Window is presented as sheet, ending sheet")
+            parentWindow.endSheet(window!)
+        } else {
+            print("Window is not a sheet, closing normally")
+            window?.close()
+        }
     }
     
     @objc private func clearCanvas() {
@@ -453,6 +461,7 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
 
 extension PixelArtEditorWindow: ColorPaletteDelegate {
     func colorSelected(_ color: NSColor) {
+        print("[DEBUG] colorSelected called with color: \(color)")
         canvasView.currentColor = color
     }
 }

@@ -209,6 +209,7 @@ class PixelArtCanvasView: NSView {
     // MARK: - Drawing Operations
     
     private func drawPixel(at row: Int, col: Int, color: NSColor) {
+        print("[DEBUG] drawPixel called at row: \(row), col: \(col), color: \(color)")
         guard var pixelArt = pixelArt else { return }
         guard row >= 0 && row < pixelArt.height && col >= 0 && col < pixelArt.width else { return }
         

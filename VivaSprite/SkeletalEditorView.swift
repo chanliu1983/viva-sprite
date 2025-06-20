@@ -839,10 +839,24 @@ class SkeletalEditorView: NSView {
         return chain
     }
     
+    private var pixelArtEditorWindow: PixelArtEditorWindow?
+    
     private func openPixelArtEditor(for bone: Bone) {
         let pixelArtEditor = PixelArtEditorWindow(bone: bone)
         pixelArtEditor.delegate = self
-        pixelArtEditor.showWindow(nil)
+        self.pixelArtEditorWindow = pixelArtEditor // Retain reference
+        
+        // Present as sheet to maintain proper window hierarchy and event routing
+        if let parentWindow = self.window {
+            parentWindow.beginSheet(pixelArtEditor.window!) { [weak self] response in
+                // Sheet completed
+                self?.pixelArtEditorWindow = nil // Release reference when done
+            }
+        } else {
+            // Fallback to regular window if no parent window
+            pixelArtEditor.showWindow(nil)
+            pixelArtEditor.window?.makeKeyAndOrderFront(nil)
+        }
     }
     
     // MARK: - Public Methods

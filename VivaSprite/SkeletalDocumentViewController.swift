@@ -32,6 +32,8 @@ class SkeletalDocumentViewController: NSViewController {
     private var selectedJoint: Joint?
     private var selectedBone: Bone?
     
+    private var pixelArtEditorWindow: PixelArtEditorWindow?
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -599,7 +601,19 @@ class SkeletalDocumentViewController: NSViewController {
         
         let pixelArtEditor = PixelArtEditorWindow(bone: bone)
         pixelArtEditor.delegate = skeletalEditorView
-        pixelArtEditor.showWindow(nil)
+        self.pixelArtEditorWindow = pixelArtEditor // Retain reference
+        
+        // Present as sheet to maintain proper window hierarchy and event routing
+        if let parentWindow = self.view.window {
+            parentWindow.beginSheet(pixelArtEditor.window!) { [weak self] response in
+                // Sheet completed
+                self?.pixelArtEditorWindow = nil // Release reference when done
+            }
+        } else {
+            // Fallback to regular window if no parent window
+            pixelArtEditor.showWindow(nil)
+            pixelArtEditor.window?.makeKeyAndOrderFront(nil)
+        }
     }
     
     @objc private func skeletonNameChanged(_ sender: NSTextField) {
