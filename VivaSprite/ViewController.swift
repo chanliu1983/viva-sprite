@@ -45,7 +45,11 @@ class ViewController: NSViewController {
     }
     
     @IBAction func newDocument(_ sender: Any) {
-        tabViewController?.createNewDocument()
+        tabViewController?.createNewDocument(type: .pixelArt)
+    }
+    
+    @IBAction func newSkeletalDocument(_ sender: Any) {
+        tabViewController?.createNewDocument(type: .skeletal)
     }
     
     @IBAction func openImage(_ sender: Any) {

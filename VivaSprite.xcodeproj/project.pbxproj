@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		861CAAF32E04F7EC00CDB900 /* PixelArtEditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861CAAED2E04F7EC00CDB900 /* PixelArtEditorWindow.swift */; };
+		861CAAF42E04F7EC00CDB900 /* SkeletalHierarchyDataSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861CAAF12E04F7EC00CDB900 /* SkeletalHierarchyDataSource.swift */; };
+		861CAAF52E04F7EC00CDB900 /* SkeletalDocumentViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861CAAEF2E04F7EC00CDB900 /* SkeletalDocumentViewController.swift */; };
+		861CAAF62E04F7EC00CDB900 /* SkeletalSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861CAAF22E04F7EC00CDB900 /* SkeletalSystem.swift */; };
+		861CAAF72E04F7EC00CDB900 /* SkeletalEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861CAAF02E04F7EC00CDB900 /* SkeletalEditorView.swift */; };
+		861CAAF82E04F7EC00CDB900 /* PixelArtCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861CAAEC2E04F7EC00CDB900 /* PixelArtCanvasView.swift */; };
+
 		86A3019C2E02EE80005D2ED9 /* DocumentViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A3019B2E02EE80005D2ED9 /* DocumentViewController.swift */; };
 		86A3019E2E02EE93005D2ED9 /* TabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A3019D2E02EE93005D2ED9 /* TabViewController.swift */; };
 		86A301A02E02EEA3005D2ED9 /* Document.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 86A3019F2E02EEA3005D2ED9 /* Document.storyboard */; };
@@ -19,6 +26,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		861CAAEC2E04F7EC00CDB900 /* PixelArtCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelArtCanvasView.swift; sourceTree = "<group>"; };
+		861CAAED2E04F7EC00CDB900 /* PixelArtEditorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelArtEditorWindow.swift; sourceTree = "<group>"; };
+
+		861CAAEF2E04F7EC00CDB900 /* SkeletalDocumentViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletalDocumentViewController.swift; sourceTree = "<group>"; };
+		861CAAF02E04F7EC00CDB900 /* SkeletalEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletalEditorView.swift; sourceTree = "<group>"; };
+		861CAAF12E04F7EC00CDB900 /* SkeletalHierarchyDataSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletalHierarchyDataSource.swift; sourceTree = "<group>"; };
+		861CAAF22E04F7EC00CDB900 /* SkeletalSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletalSystem.swift; sourceTree = "<group>"; };
 		86A3019B2E02EE80005D2ED9 /* DocumentViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentViewController.swift; sourceTree = "<group>"; };
 		86A3019D2E02EE93005D2ED9 /* TabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabViewController.swift; sourceTree = "<group>"; };
 		86A3019F2E02EEA3005D2ED9 /* Document.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Document.storyboard; sourceTree = "<group>"; };
@@ -47,6 +61,13 @@
 		A1234567890123456789014C /* VivaSprite */ = {
 			isa = PBXGroup;
 			children = (
+				861CAAEC2E04F7EC00CDB900 /* PixelArtCanvasView.swift */,
+				861CAAED2E04F7EC00CDB900 /* PixelArtEditorWindow.swift */,
+
+				861CAAEF2E04F7EC00CDB900 /* SkeletalDocumentViewController.swift */,
+				861CAAF02E04F7EC00CDB900 /* SkeletalEditorView.swift */,
+				861CAAF12E04F7EC00CDB900 /* SkeletalHierarchyDataSource.swift */,
+				861CAAF22E04F7EC00CDB900 /* SkeletalSystem.swift */,
 				86A3019D2E02EE93005D2ED9 /* TabViewController.swift */,
 				86A3019B2E02EE80005D2ED9 /* DocumentViewController.swift */,
 				A1234567890123456789012B /* AppDelegate.swift */,
@@ -145,6 +166,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1234567890123456789013E /* Main.storyboard in Resources */,
+
 				86A301A02E02EEA3005D2ED9 /* Document.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -162,6 +184,12 @@
 				86A3019C2E02EE80005D2ED9 /* DocumentViewController.swift in Sources */,
 				A1234567890123456789013A /* ColorPalette.swift in Sources */,
 				86A3019E2E02EE93005D2ED9 /* TabViewController.swift in Sources */,
+				861CAAF32E04F7EC00CDB900 /* PixelArtEditorWindow.swift in Sources */,
+				861CAAF42E04F7EC00CDB900 /* SkeletalHierarchyDataSource.swift in Sources */,
+				861CAAF52E04F7EC00CDB900 /* SkeletalDocumentViewController.swift in Sources */,
+				861CAAF62E04F7EC00CDB900 /* SkeletalSystem.swift in Sources */,
+				861CAAF72E04F7EC00CDB900 /* SkeletalEditorView.swift in Sources */,
+				861CAAF82E04F7EC00CDB900 /* PixelArtCanvasView.swift in Sources */,
 				A1234567890123456789013C /* ToolManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

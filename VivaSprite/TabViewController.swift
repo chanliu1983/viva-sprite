@@ -7,17 +7,22 @@
 
 import Cocoa
 
+enum DocumentType {
+    case pixelArt
+    case skeletal
+}
+
 class TabViewController: NSViewController {
     
     @IBOutlet weak var tabView: NSTabView!
     
-    private var documentControllers: [DocumentViewController] = []
+    private var documentControllers: [NSViewController] = []
     private var nextUntitledNumber = 1
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTabView()
-        createNewDocument() // Create initial document
+        createNewDocument(type: .pixelArt) // Create initial document
     }
     
     private func setupTabView() {
@@ -38,18 +43,34 @@ class TabViewController: NSViewController {
         view.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
     }
     
-    func createNewDocument() {
+    func createNewDocument(type: DocumentType = .pixelArt) {
         let storyboard = NSStoryboard(name: "Document", bundle: nil)
-        guard let documentVC = storyboard.instantiateController(withIdentifier: "DocumentViewController") as? DocumentViewController else {
-            return
+        
+        let documentVC: NSViewController
+        let documentName: String
+        
+        switch type {
+        case .pixelArt:
+            guard let pixelArtVC = storyboard.instantiateController(withIdentifier: "DocumentViewController") as? DocumentViewController else {
+                return
+            }
+            pixelArtVC.tabViewController = self
+            pixelArtVC.documentName = "Untitled Pixel Art \(nextUntitledNumber)"
+            documentName = pixelArtVC.documentName
+            documentVC = pixelArtVC
+            
+        case .skeletal:
+            let skeletalVC = SkeletalDocumentViewController()
+            skeletalVC.tabViewController = self
+            skeletalVC.documentName = "Untitled Skeleton \(nextUntitledNumber)"
+            documentName = skeletalVC.documentName
+            documentVC = skeletalVC
         }
         
-        documentVC.tabViewController = self
-        documentVC.documentName = "Untitled \(nextUntitledNumber)"
         nextUntitledNumber += 1
         
         let tabViewItem = NSTabViewItem(viewController: documentVC)
-        tabViewItem.label = documentVC.documentName
+        tabViewItem.label = documentName
         
         tabView.addTabViewItem(tabViewItem)
         tabView.selectTabViewItem(tabViewItem)
@@ -145,13 +166,23 @@ class TabViewController: NSViewController {
         return documentVC
     }
     
-    func updateTabTitle(for documentVC: DocumentViewController, title: String) {
-        for tabViewItem in tabView.tabViewItems {
-            if tabViewItem.viewController === documentVC {
-                tabViewItem.label = title
-                break
-            }
+    func closeDocument(_ documentVC: NSViewController) {
+        guard let index = documentControllers.firstIndex(where: { $0 === documentVC }) else { return }
+        
+        let tabViewItem = tabView.tabViewItems[index]
+        tabView.removeTabViewItem(tabViewItem)
+        documentControllers.remove(at: index)
+        
+        // If no documents left, create a new one
+        if documentControllers.isEmpty {
+            createNewDocument(type: .pixelArt)
         }
+    }
+    
+    func updateTabTitle(for documentVC: NSViewController, title: String) {
+        guard let index = documentControllers.firstIndex(where: { $0 === documentVC }) else { return }
+        let tabViewItem = tabView.tabViewItems[index]
+        tabViewItem.label = title
     }
 }
 
