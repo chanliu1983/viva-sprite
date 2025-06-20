@@ -35,25 +35,23 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <menu key="submenu" title="File" id="bib-Uj-vzu">
                                     <items>
-
                                         <menuItem title="New Skeleton" keyEquivalent="N" id="Was-JB-tGl">
                                             <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                             <connections>
                                                 <action selector="newSkeletalDocument:" target="Ady-hI-5gd" id="4Ox-Fq-VkJ"/>
                                             </connections>
                                         </menuItem>
-
                                         <menuItem isSeparatorItem="YES" id="sep-1"/>
-                                        <menuItem title="Export Skeleton..." keyEquivalent="e" id="exp-sk-itm">
-                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
-                                            <connections>
-                                                <action selector="exportSkeleton:" target="Ady-hI-5gd" id="exp-sk-act"/>
-                                            </connections>
-                                        </menuItem>
                                         <menuItem title="Import Skeleton..." keyEquivalent="i" id="imp-sk-itm">
                                             <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                             <connections>
                                                 <action selector="importSkeleton:" target="Ady-hI-5gd" id="imp-sk-act"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Export Skeleton..." keyEquivalent="e" id="exp-sk-itm">
+                                            <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                            <connections>
+                                                <action selector="exportSkeleton:" target="Ady-hI-5gd" id="exp-sk-act"/>
                                             </connections>
                                         </menuItem>
                                     </items>

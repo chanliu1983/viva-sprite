@@ -15,7 +15,7 @@
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <scrollView autohidesScrollers="YES" horizontalLineScroll="19" horizontalPageScroll="10" verticalLineScroll="19" verticalPageScroll="10" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="doc-scroll-view">
-                                <rect key="frame" x="20" y="80" width="512" height="512"/>
+                                <rect key="frame" x="20" y="28" width="512" height="512"/>
                                 <clipView key="contentView" drawsBackground="NO" id="doc-clip-view">
                                     <rect key="frame" x="1" y="1" width="510" height="510"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
@@ -53,7 +53,7 @@
                                 </connections>
                             </segmentedControl>
                             <view translatesAutoresizingMaskIntoConstraints="NO" id="doc-color-palette" customClass="ColorPalette" customModule="VivaSprite" customModuleProvider="target">
-                                <rect key="frame" x="560" y="392" width="220" height="200"/>
+                                <rect key="frame" x="560" y="340" width="220" height="200"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="200" id="doc-palette-height"/>
                                     <constraint firstAttribute="width" constant="220" id="doc-palette-width"/>
@@ -71,14 +71,14 @@
                             </button>
                         </subviews>
                         <constraints>
-                            <constraint firstItem="doc-scroll-view" firstAttribute="leading" secondItem="doc-view-id" secondAttribute="leading" constant="20" id="doc-scroll-leading"/>
-                            <constraint firstItem="doc-scroll-view" firstAttribute="top" secondItem="doc-view-id" secondAttribute="top" constant="60" id="doc-scroll-top"/>
-                            <constraint firstItem="doc-tool-control" firstAttribute="leading" secondItem="doc-view-id" secondAttribute="leading" constant="20" id="doc-tool-leading"/>
-                            <constraint firstAttribute="bottom" secondItem="doc-tool-control" secondAttribute="bottom" constant="20" id="doc-tool-bottom"/>
-                            <constraint firstItem="doc-color-palette" firstAttribute="leading" secondItem="doc-scroll-view" secondAttribute="trailing" constant="28" id="doc-palette-leading"/>
-                            <constraint firstItem="doc-color-palette" firstAttribute="top" secondItem="doc-scroll-view" secondAttribute="top" id="doc-palette-top"/>
                             <constraint firstAttribute="bottom" secondItem="doc-clear-btn" secondAttribute="bottom" constant="20" id="doc-clear-bottom"/>
                             <constraint firstItem="doc-clear-btn" firstAttribute="leading" secondItem="doc-tool-control" secondAttribute="trailing" constant="17" id="doc-clear-leading"/>
+                            <constraint firstItem="doc-color-palette" firstAttribute="leading" secondItem="doc-scroll-view" secondAttribute="trailing" constant="28" id="doc-palette-leading"/>
+                            <constraint firstItem="doc-color-palette" firstAttribute="top" secondItem="doc-scroll-view" secondAttribute="top" id="doc-palette-top"/>
+                            <constraint firstItem="doc-scroll-view" firstAttribute="leading" secondItem="doc-view-id" secondAttribute="leading" constant="20" id="doc-scroll-leading"/>
+                            <constraint firstItem="doc-scroll-view" firstAttribute="top" secondItem="doc-view-id" secondAttribute="top" constant="60" id="doc-scroll-top"/>
+                            <constraint firstAttribute="bottom" secondItem="doc-tool-control" secondAttribute="bottom" constant="20" id="doc-tool-bottom"/>
+                            <constraint firstItem="doc-tool-control" firstAttribute="leading" secondItem="doc-view-id" secondAttribute="leading" constant="20" id="doc-tool-leading"/>
                         </constraints>
                     </view>
                     <connections>
@@ -100,16 +100,15 @@
                         <autoresizingMask key="autoresizingMask"/>
                         <subviews>
                             <tabView translatesAutoresizingMaskIntoConstraints="NO" id="tab-view-control">
-                                <rect key="frame" x="0.0" y="0.0" width="800" height="600"/>
+                                <rect key="frame" x="-7" y="-10" width="814" height="616"/>
                                 <font key="font" metaFont="system"/>
-                                <tabViewItems/>
                             </tabView>
                         </subviews>
                         <constraints>
-                            <constraint firstItem="tab-view-control" firstAttribute="top" secondItem="tab-view-id" secondAttribute="top" id="tab-view-top"/>
-                            <constraint firstItem="tab-view-control" firstAttribute="leading" secondItem="tab-view-id" secondAttribute="leading" id="tab-view-leading"/>
-                            <constraint firstAttribute="trailing" secondItem="tab-view-control" secondAttribute="trailing" id="tab-view-trailing"/>
                             <constraint firstAttribute="bottom" secondItem="tab-view-control" secondAttribute="bottom" id="tab-view-bottom"/>
+                            <constraint firstItem="tab-view-control" firstAttribute="leading" secondItem="tab-view-id" secondAttribute="leading" id="tab-view-leading"/>
+                            <constraint firstItem="tab-view-control" firstAttribute="top" secondItem="tab-view-id" secondAttribute="top" id="tab-view-top"/>
+                            <constraint firstAttribute="trailing" secondItem="tab-view-control" secondAttribute="trailing" id="tab-view-trailing"/>
                         </constraints>
                     </view>
                     <connections>

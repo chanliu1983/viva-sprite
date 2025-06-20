@@ -91,6 +91,8 @@ class PixelArtEditorWindow: NSWindowController {
         toolbar.delegate = self
         toolbar.allowsUserCustomization = false
         toolbar.autosavesConfiguration = false
+        toolbar.displayMode = .iconAndLabel
+        toolbar.isVisible = true
         window.toolbar = toolbar
     }
     
@@ -105,6 +107,9 @@ class PixelArtEditorWindow: NSWindowController {
         colorPalette = ColorPalette()
         colorPalette.delegate = self
         colorPalette.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Set the canvas view's initial color to match the selected color in the palette
+        canvasView.currentColor = colorPalette.selectedColor
     }
     
     private func setupControls() {
@@ -356,23 +361,37 @@ extension PixelArtEditorWindow: NSWindowDelegate {
 
 // MARK: - NSToolbarDelegate
 
-extension PixelArtEditorWindow: NSToolbarDelegate {
+extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         
         switch itemIdentifier.rawValue {
         case "save":
+            // Create a custom view toolbar item with a button for better control
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             item.label = "Save"
-            item.target = self
-            item.action = #selector(savePixelArt)
+            item.paletteLabel = "Save"
+            item.toolTip = "Save pixel art to the bone"
+            
+            // Create a custom button
+            let button = NSButton(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
+            button.bezelStyle = .texturedRounded
+            button.isBordered = false
+            button.title = ""
+            
+            if let saveImage = NSImage(systemSymbolName: "square.and.arrow.down.fill", accessibilityDescription: "Save") {
+                button.image = saveImage
+            }
+            
+            button.target = self
+            button.action = #selector(savePixelArt)
+            button.isEnabled = true
+            
+            item.view = button
+            print("Creating custom save button with target: \(self) and action: \(#selector(savePixelArt))")
+            
             return item
             
-        case "clear":
-            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-            item.label = "Clear"
-            item.target = self
-            item.action = #selector(clearCanvas)
-            return item
+
             
         default:
             return nil
@@ -382,7 +401,6 @@ extension PixelArtEditorWindow: NSToolbarDelegate {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         return [
             NSToolbarItem.Identifier("save"),
-            NSToolbarItem.Identifier("clear"),
             .flexibleSpace
         ]
     }
@@ -390,19 +408,26 @@ extension PixelArtEditorWindow: NSToolbarDelegate {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         return [
             NSToolbarItem.Identifier("save"),
-            NSToolbarItem.Identifier("clear"),
             .flexibleSpace
         ]
     }
     
+    // Implement NSToolbarItemValidation protocol to ensure toolbar buttons are always enabled
+    func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+        // Always enable the save button
+        if item.itemIdentifier.rawValue == "save" {
+            print("Validating toolbar item: \(item.itemIdentifier.rawValue) - returning true")
+            return true
+        }
+        print("Validating toolbar item: \(item.itemIdentifier.rawValue) - returning false")
+        return false
+    }
+    
     @objc private func savePixelArt() {
+        print("Save button clicked - saving pixel art")
         updateBone()
-        
-        let alert = NSAlert()
-        alert.messageText = "Pixel Art Saved"
-        alert.informativeText = "The pixel art has been saved to the bone."
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        print("Data saved, closing window")
+        window?.close()
     }
     
     @objc private func clearCanvas() {

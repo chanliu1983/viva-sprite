@@ -334,18 +334,37 @@ class SkeletalEditorView: NSView {
             let rotatedOffset = rotateVector(anchorOffset, by: boneAngle)
             let pixelArtPos = boneCenter - rotatedOffset
             
-            // Draw pixel art preview (simplified)
+            // Draw actual pixel art
             context.saveGState()
             context.translateBy(x: CGFloat(pixelArtPos.x + canvasOffset.x), y: CGFloat(pixelArtPos.y + canvasOffset.y))
             context.rotate(by: CGFloat(boneAngle))
             
-            // Draw a simple rectangle representing the pixel art
-            let rect = CGRect(x: -pixelArtWidth/2, y: -pixelArtHeight/2, width: pixelArtWidth, height: pixelArtHeight)
-            context.setFillColor(NSColor.systemPurple.withAlphaComponent(0.3).cgColor)
-            context.setStrokeColor(NSColor.systemPurple.cgColor)
-            context.setLineWidth(1.0)
-            context.fill(rect)
-            context.stroke(rect)
+            // Calculate pixel size for rendering
+            let pixelSize = CGFloat(2) // 2x2 pixels for visibility
+            let totalWidth = CGFloat(pixelArt.width) * pixelSize
+            let totalHeight = CGFloat(pixelArt.height) * pixelSize
+            
+            // Draw each pixel
+            for row in 0..<pixelArt.height {
+                for col in 0..<pixelArt.width {
+                    if let color = pixelArt.pixels[row][col] {
+                        let pixelRect = CGRect(
+                            x: CGFloat(col) * pixelSize - totalWidth/2,
+                            y: CGFloat(pixelArt.height - 1 - row) * pixelSize - totalHeight/2, // Flip Y coordinate
+                            width: pixelSize,
+                            height: pixelSize
+                        )
+                        context.setFillColor(color.cgColor)
+                        context.fill(pixelRect)
+                    }
+                }
+            }
+            
+            // Draw border around pixel art
+            let borderRect = CGRect(x: -totalWidth/2, y: -totalHeight/2, width: totalWidth, height: totalHeight)
+            context.setStrokeColor(NSColor.systemGray.withAlphaComponent(0.5).cgColor)
+            context.setLineWidth(0.5)
+            context.stroke(borderRect)
             
             context.restoreGState()
         }
