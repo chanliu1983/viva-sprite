@@ -51,4 +51,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             skeletalController.importSkeleton(sender)
         }
     }
+    
+    @IBAction func exportAsImage(_ sender: Any) {
+        if let mainWindow = NSApplication.shared.mainWindow,
+           let tabViewController = mainWindow.contentViewController as? TabViewController,
+           let selectedItem = tabViewController.tabView.selectedTabViewItem,
+           let skeletalController = selectedItem.viewController as? SkeletalDocumentViewController {
+            skeletalController.exportAsImage(sender)
+        }
+    }
 }

@@ -1012,6 +1012,15 @@ class SkeletalEditorView: NSView {
         needsDisplay = true
     }
     
+    func exportAsImage() -> NSImage {
+        let image = NSImage(size: self.bounds.size)
+        image.lockFocus()
+        let context = NSGraphicsContext.current!.cgContext
+        layer!.render(in: context)
+        image.unlockFocus()
+        return image
+    }
+    
     func addJoint(at position: simd_float2, name: String) {
         guard let skeleton = skeleton else { return }
         

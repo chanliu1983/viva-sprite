@@ -54,6 +54,12 @@
                                                 <action selector="exportSkeleton:" target="Ady-hI-5gd" id="exp-sk-act"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Export as Image..." id="8ID-5X-gAV">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="exportAsImage:" target="Ady-hI-5gd" id="ffx-BX-gx5"/>
+                                            </connections>
+                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>

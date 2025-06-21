@@ -409,6 +409,26 @@ class SkeletalDocumentViewController: NSViewController {
         }
     }
     
+    @objc func exportAsImage(_ sender: Any) {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.png]
+        savePanel.nameFieldStringValue = "\(documentName).png"
+        
+        if savePanel.runModal() == .OK {
+            guard let url = savePanel.url else { return }
+            let image = skeletalEditorView.exportAsImage()
+            if let tiffData = image.tiffRepresentation,
+               let bitmap = NSBitmapImageRep(data: tiffData),
+               let pngData = bitmap.representation(using: .png, properties: [:]) {
+                do {
+                    try pngData.write(to: url)
+                } catch {
+                    print("Error saving image: \(error)")
+                }
+            }
+        }
+    }
+    
     // MARK: - Helper Methods
     
     private func updateTabTitle() {
