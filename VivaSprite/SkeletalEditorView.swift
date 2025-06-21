@@ -34,7 +34,6 @@ class SkeletalEditorView: NSView {
     private var dragOffset: simd_float2 = simd_float2(0, 0)
     private var isIKMode = false
 
-    private var ikPaths: [[Joint]] = [] // Store individual joint paths for debugging
     private var ikBonePaths: [[Bone]] = [] // Store individual bone paths for debugging
     
     // Tool and canvas panning
@@ -68,19 +67,6 @@ class SkeletalEditorView: NSView {
     private let fixedJointColor = NSColor.systemRed
     private let boneColor = NSColor.systemGray
     private let selectedBoneColor = NSColor.systemOrange
-
-    
-    // Debug colors for different IK paths
-    private let pathDebugColors: [NSColor] = [
-        NSColor.systemGreen,
-        NSColor.systemBlue,
-        NSColor.systemPurple,
-        NSColor.systemOrange,
-        NSColor.systemYellow,
-        NSColor.systemPink,
-        NSColor.systemTeal,
-        NSColor.systemIndigo
-    ]
     
     // MARK: - Initialization
     
@@ -324,7 +310,7 @@ class SkeletalEditorView: NSView {
                 // Follow the bone path from the selected joint
                 for bone in bonePath {
                     if let current = currentJoint,
-                       let nextJoint = bone.connectedJoint(to: current) {
+                       let nextJoint = bone.connectedJoint(from: current) {
                         jointNames.append(nextJoint.name)
                         currentJoint = nextJoint
                     }
@@ -828,7 +814,6 @@ class SkeletalEditorView: NSView {
     }
     
     private func buildIKChain(to targetJoint: Joint) {
-        ikPaths.removeAll()
         ikBonePaths.removeAll()
         guard let skeleton = skeleton else { return }
         
@@ -853,16 +838,17 @@ class SkeletalEditorView: NSView {
                 var currentJoint = targetJoint
                 
                 for bone in bonePath {
-                    let nextJoint = (bone.startJoint === currentJoint) ? bone.endJoint : bone.startJoint
-                    jointPath.append(nextJoint)
-                    currentJoint = nextJoint
+                    let nextJoint = bone.connectedJoint(from: currentJoint)
+                    
+                    if nextJoint != nil {
+                        currentJoint = nextJoint!
+                        jointPath.append(currentJoint)
+                    }
                 }
                 allJointPaths.append(jointPath)
             }
         }
         
-        // Store paths for debugging and create bone-to-path mapping
-        ikPaths = allJointPaths
         ikBonePaths = allBonePaths
         
         // All paths are now stored in ikBonePaths for visualization
@@ -1248,7 +1234,6 @@ class SkeletalEditorView: NSView {
     func toggleIKMode() {
         isIKMode.toggle()
         if !isIKMode {
-            ikPaths.removeAll()
             ikBonePaths.removeAll()
         } else {
             // When entering IK mode, update all bone original lengths to current lengths
@@ -1267,7 +1252,6 @@ class SkeletalEditorView: NSView {
             
             // Clear IK data when entering IK mode
             if selectedJoint == nil {
-                ikPaths.removeAll()
                 ikBonePaths.removeAll()
             } else if let selectedJoint = selectedJoint {
                 buildIKChain(to: selectedJoint)
@@ -1316,7 +1300,6 @@ class SkeletalEditorView: NSView {
             selectedJoint = nil
             // Clear IK chain since selected joint was deleted
             if isIKMode {
-                ikPaths.removeAll()
                 ikBonePaths.removeAll()
             }
         } else if let bone = selectedBone {

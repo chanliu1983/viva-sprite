@@ -125,7 +125,7 @@ class Bone: Hashable {
         return atan2(diff.y, diff.x)
     }
     
-    func connectedJoint(to joint: Joint) -> Joint? {
+    func connectedJoint(from joint: Joint) -> Joint? {
         if joint.id == startJoint.id {
             return endJoint
         } else if joint.id == endJoint.id {
