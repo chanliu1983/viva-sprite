@@ -25,14 +25,18 @@ class PixelArtEditorWindow: NSWindowController {
     private var colorPalette: ColorPalette!
     private var toolSegmentedControl: NSSegmentedControl!
     private var brushSizeControls: NSStackView!
-    private var sizeControls: NSStackView!
-    private var anchorControls: NSStackView!
+
     private var nameTextField: NSTextField!
     private var importButton: NSButton!
     private var debugInfoLabel: NSTextField!
     private var zoomControls: NSStackView!
     private var zoomLabel: NSTextField!
     private var zoomFactor: CGFloat = 1.0
+    
+    private func updateCurrentColorView() {
+        currentColorView.layer?.backgroundColor = canvasView.currentColor.cgColor
+    }
+    private var currentColorView: NSView! // Add this property for current color display
     
     // MARK: - Initialization
     
@@ -142,37 +146,41 @@ class PixelArtEditorWindow: NSWindowController {
         
         // Tool control with icons
         toolSegmentedControl = NSSegmentedControl()
-        toolSegmentedControl.segmentCount = 3
-        
+        toolSegmentedControl.segmentCount = 4 // Add color picker tool
         // Set icons for each tool
         if let penIcon = NSImage(systemSymbolName: "pencil", accessibilityDescription: "Pen") {
             toolSegmentedControl.setImage(penIcon, forSegment: 0)
         }
         toolSegmentedControl.setLabel("Pen", forSegment: 0)
-        
         if let eraserIcon = NSImage(systemSymbolName: "eraser", accessibilityDescription: "Eraser") {
             toolSegmentedControl.setImage(eraserIcon, forSegment: 1)
         }
         toolSegmentedControl.setLabel("Eraser", forSegment: 1)
-        
         if let panIcon = NSImage(systemSymbolName: "hand.draw", accessibilityDescription: "Pan") {
             toolSegmentedControl.setImage(panIcon, forSegment: 2)
         }
         toolSegmentedControl.setLabel("Pan", forSegment: 2)
-        
+        if let pickerIcon = NSImage(systemSymbolName: "eyedropper", accessibilityDescription: "Color Picker") {
+            toolSegmentedControl.setImage(pickerIcon, forSegment: 3)
+        }
+        toolSegmentedControl.setLabel("Picker", forSegment: 3)
         toolSegmentedControl.selectedSegment = 0
         toolSegmentedControl.target = self
         toolSegmentedControl.action = #selector(toolChanged)
         toolSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
+
+        // Current color view
+        currentColorView = NSView()
+        currentColorView.wantsLayer = true
+        currentColorView.layer?.borderColor = NSColor.gray.cgColor
+        currentColorView.layer?.borderWidth = 1
+        currentColorView.translatesAutoresizingMaskIntoConstraints = false
+        updateCurrentColorView()
         
         // Brush size controls
         setupBrushSizeControls()
         
-        // Size controls
-        setupSizeControls()
-        
-        // Anchor controls
-        setupAnchorControls()
+
         
         // Import button
         setupImportButton()
@@ -184,34 +192,7 @@ class PixelArtEditorWindow: NSWindowController {
         setupZoomControls()
     }
     
-    private func setupSizeControls() {
-        sizeControls = NSStackView()
-        sizeControls.orientation = .horizontal
-        sizeControls.spacing = 8
-        sizeControls.translatesAutoresizingMaskIntoConstraints = false
-        
-        let widthLabel = NSTextField(labelWithString: "Width:")
-        let widthField = NSTextField()
-        widthField.integerValue = pixelArt.width
-        widthField.target = self
-        widthField.action = #selector(sizeChanged)
-        widthField.tag = 0 // width
-        
-        let heightLabel = NSTextField(labelWithString: "Height:")
-        let heightField = NSTextField()
-        heightField.integerValue = pixelArt.height
-        heightField.target = self
-        heightField.action = #selector(sizeChanged)
-        heightField.tag = 1 // height
-        
-        let resizeButton = NSButton(title: "Resize", target: self, action: #selector(resizeCanvas))
-        
-        sizeControls.addArrangedSubview(widthLabel)
-        sizeControls.addArrangedSubview(widthField)
-        sizeControls.addArrangedSubview(heightLabel)
-        sizeControls.addArrangedSubview(heightField)
-        sizeControls.addArrangedSubview(resizeButton)
-    }
+
     
     private func setupBrushSizeControls() {
         brushSizeControls = NSStackView()
@@ -246,33 +227,7 @@ class PixelArtEditorWindow: NSWindowController {
         ])
     }
     
-    private func setupAnchorControls() {
-        anchorControls = NSStackView()
-        anchorControls.orientation = .horizontal
-        anchorControls.spacing = 8
-        anchorControls.translatesAutoresizingMaskIntoConstraints = false
-        
-        let anchorLabel = NSTextField(labelWithString: "Anchor:")
-        
-        let anchorXField = NSTextField()
-        anchorXField.doubleValue = Double(pixelArt.anchorPoint.x)
-        anchorXField.target = self
-        anchorXField.action = #selector(anchorChanged)
-        anchorXField.tag = 0 // x
-        
-        let anchorYField = NSTextField()
-        anchorYField.doubleValue = Double(pixelArt.anchorPoint.y)
-        anchorYField.target = self
-        anchorYField.action = #selector(anchorChanged)
-        anchorYField.tag = 1 // y
-        
-        let centerButton = NSButton(title: "Center", target: self, action: #selector(centerAnchor))
-        
-        anchorControls.addArrangedSubview(anchorLabel)
-        anchorControls.addArrangedSubview(anchorXField)
-        anchorControls.addArrangedSubview(anchorYField)
-        anchorControls.addArrangedSubview(centerButton)
-    }
+
     
     private func setupImportButton() {
         importButton = NSButton(title: "Import Image", target: self, action: #selector(importImage))
@@ -350,10 +305,13 @@ class PixelArtEditorWindow: NSWindowController {
         controlsContainer.translatesAutoresizingMaskIntoConstraints = false
         
         controlsContainer.addArrangedSubview(nameTextField)
-        controlsContainer.addArrangedSubview(toolSegmentedControl)
+
+        let toolAndColorContainer = NSStackView(views: [toolSegmentedControl, currentColorView])
+        toolAndColorContainer.orientation = .horizontal
+        toolAndColorContainer.spacing = 8
+        controlsContainer.addArrangedSubview(toolAndColorContainer)
+
         controlsContainer.addArrangedSubview(brushSizeControls)
-        controlsContainer.addArrangedSubview(sizeControls)
-        controlsContainer.addArrangedSubview(anchorControls)
         controlsContainer.addArrangedSubview(zoomControls)
         controlsContainer.addArrangedSubview(importButton)
         controlsContainer.addArrangedSubview(debugInfoLabel)
@@ -367,6 +325,9 @@ class PixelArtEditorWindow: NSWindowController {
             mainContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
             mainContainer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
             mainContainer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+
+            currentColorView.widthAnchor.constraint(equalToConstant: 30),
+            currentColorView.heightAnchor.constraint(equalTo: toolSegmentedControl.heightAnchor),
             
             colorPalette.widthAnchor.constraint(equalToConstant: 200),
             
@@ -386,6 +347,8 @@ class PixelArtEditorWindow: NSWindowController {
             canvasView.currentTool = .eraser
         case 2:
             canvasView.currentTool = .pan
+        case 3:
+            canvasView.currentTool = .picker
         default:
             break
         }
@@ -451,47 +414,7 @@ class PixelArtEditorWindow: NSWindowController {
         }
     }
     
-    @objc private func sizeChanged(_ sender: NSTextField) {
-        // Size changes will be handled by resize button
-    }
-    
-    @objc private func resizeCanvas(_ sender: NSButton) {
-        guard let widthField = sizeControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 0 }),
-              let heightField = sizeControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 1 }) else {
-            return
-        }
-        
-        let newWidth = max(1, min(128, widthField.integerValue))
-        let newHeight = max(1, min(128, heightField.integerValue))
-        
-        resizePixelArt(to: newWidth, height: newHeight)
-    }
-    
-    @objc private func anchorChanged(_ sender: NSTextField) {
-        guard let xField = anchorControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 0 }),
-              let yField = anchorControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 1 }) else {
-            return
-        }
-        
-        let x = max(0, min(1, Float(xField.doubleValue)))
-        let y = max(0, min(1, Float(yField.doubleValue)))
-        
-        pixelArt.anchorPoint = simd_float2(x, y)
-        updateBone()
-    }
-    
-    @objc private func centerAnchor(_ sender: NSButton) {
-        pixelArt.anchorPoint = simd_float2(0.5, 0.5)
-        
-        // Update UI
-        if let xField = anchorControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 0 }),
-           let yField = anchorControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 1 }) {
-            xField.doubleValue = 0.5
-            yField.doubleValue = 0.5
-        }
-        
-        updateBone()
-    }
+
     
     @objc private func importImage(_ sender: NSButton) {
         let openPanel = NSOpenPanel()
@@ -587,12 +510,7 @@ class PixelArtEditorWindow: NSWindowController {
         let newWidth = min(imageWidth, maxSize)
         let newHeight = min(imageHeight, maxSize)
         
-        // Update size fields in UI
-        if let widthField = sizeControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 0 }),
-           let heightField = sizeControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 1 }) {
-            widthField.integerValue = newWidth
-            heightField.integerValue = newHeight
-        }
+
         
         // Resize the pixel art
         resizePixelArt(to: newWidth, height: newHeight)
@@ -739,17 +657,21 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
 
 extension PixelArtEditorWindow: ColorPaletteDelegate {
     func colorSelected(_ color: NSColor) {
-        print("[DEBUG] colorSelected called with color: \(color)")
         canvasView.currentColor = color
+        updateCurrentColorView()
     }
 }
 
 // MARK: - PixelArtCanvasViewDelegate
 
-
-
 extension PixelArtEditorWindow: PixelArtCanvasViewDelegate {
     func pixelArtCanvasDidChange(_ canvas: PixelArtCanvasView) {
         updateBone()
+        updateCurrentColorView()
+    }
+    func pixelArtCanvasDidPickColor(_ canvas: PixelArtCanvasView, color: NSColor) {
+        canvasView.currentColor = color
+        updateCurrentColorView()
+        colorPalette.selectColor(color)
     }
 }

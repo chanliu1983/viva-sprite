@@ -35,6 +35,13 @@ class ColorPalette: NSView {
     private let spacing: CGFloat = 4
     private let colorsPerRow: Int = 8
     
+    func selectColor(_ color: NSColor) {
+        if let index = colors.firstIndex(of: color) {
+            selectedColorIndex = index
+            needsDisplay = true
+        }
+    }
+    
     override func awakeFromNib() {
         super.awakeFromNib()
         setupPalette()

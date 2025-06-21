@@ -7,14 +7,13 @@
 
 import Cocoa
 
-protocol PixelArtCanvasViewDelegate: AnyObject {
-    func pixelArtCanvasDidChange(_ canvas: PixelArtCanvasView)
-}
+ 
 
 enum PixelArtTool {
     case pen
     case eraser
     case pan
+    case picker // Add color picker tool
 }
 
 class PixelArtCanvasView: NSView {
@@ -218,7 +217,14 @@ class PixelArtCanvasView: NSView {
                     eraseBrush(at: row, col: col)
                 case .pan:
                     break // Already handled above
+                case .picker:
+                    break // Not relevant here
                 }
+            }
+        case .picker:
+            if let (row, col) = pixelCoordinates(from: point), let pixelArt = pixelArt, let pickedColor = pixelArt.pixels[row][col] {
+                currentColor = pickedColor
+                delegate?.pixelArtCanvasDidPickColor?(self, color: pickedColor)
             }
         }
     }
@@ -264,8 +270,12 @@ class PixelArtCanvasView: NSView {
                     eraseBrush(at: row, col: col)
                 case .pan:
                     break // Already handled above
+                case .picker:
+                    break // Not relevant here
                 }
             }
+        case .picker:
+            break // No dragging for picker
         }
     }
     
@@ -410,7 +420,13 @@ class PixelArtCanvasView: NSView {
             break
         default:
             super.keyDown(with: event)
-        }
+        } // All cases handled
+
     }
     
+}
+
+@objc protocol PixelArtCanvasViewDelegate: AnyObject {
+    func pixelArtCanvasDidChange(_ canvas: PixelArtCanvasView)
+    @objc optional func pixelArtCanvasDidPickColor(_ canvas: PixelArtCanvasView, color: NSColor)
 }
