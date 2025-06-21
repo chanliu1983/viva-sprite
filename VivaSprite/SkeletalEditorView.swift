@@ -1131,7 +1131,7 @@ class SkeletalEditorView: NSView {
             return nil
         }
 
-        let image = NSImage(size: canvasSize)
+        let image = NSImage(size: CGSizeMake(canvasSize.width / 2, canvasSize.height / 2))
         image.addRepresentation(rep)
 
         image.lockFocus()
