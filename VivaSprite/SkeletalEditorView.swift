@@ -37,11 +37,11 @@ class SkeletalEditorView: NSView {
     private var ikBonePaths: [[Bone]] = [] // Store individual bone paths for debugging
     
     // Tool and canvas panning
-    enum SkeletalTool {
-        case select
-        case move
-        case addJointBone  // Unified mode for joint and bone creation
-        case delete
+    enum SkeletalTool: Int {
+        case move = 0
+        case select = 1
+        case addJointBone = 2 // Unified mode for joint and bone creation
+        case delete = 3
     }
     
     var currentTool: SkeletalTool = .select

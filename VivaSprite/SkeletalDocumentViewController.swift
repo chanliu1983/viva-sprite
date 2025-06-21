@@ -13,7 +13,7 @@ class SkeletalDocumentViewController: NSViewController {
     // MARK: - UI Elements
     
     var skeletalEditorView: SkeletalEditorView!
-    var toolPopUpButton: NSPopUpButton!
+    private var toolButtons: [NSButton] = []
     var modeSegmentedControl: NSSegmentedControl!
   private var propertiesStackView: NSStackView!
     
@@ -48,6 +48,7 @@ class SkeletalDocumentViewController: NSViewController {
         
         // Set initial tool to Move mode
         skeletalEditorView.currentTool = .move
+        updateToolSelection(for: .move)
     }
     
     override func viewDidAppear() {
@@ -198,15 +199,33 @@ class SkeletalDocumentViewController: NSViewController {
         leftStackView.addArrangedSubview(toolsLabel)
         
         // Setup tool control
-        toolPopUpButton = NSPopUpButton()
-        toolPopUpButton.addItem(withTitle: "Move")
-        toolPopUpButton.addItem(withTitle: "Select")
-        toolPopUpButton.addItem(withTitle: "Add")
-        toolPopUpButton.addItem(withTitle: "Delete")
-        toolPopUpButton.selectItem(at: 0)
-        toolPopUpButton.target = self
-        toolPopUpButton.action = #selector(toolChanged(_:))
-        leftStackView.addArrangedSubview(toolPopUpButton)
+        let toolButtonContainer = NSStackView()
+        toolButtonContainer.orientation = .horizontal
+        toolButtonContainer.spacing = 0
+        toolButtonContainer.distribution = .fillEqually
+
+        let toolInfo: [(String, String, SkeletalEditorView.SkeletalTool, String)] = [
+            ("Move", "move.3d", .move, "m"),
+            ("Select", "hand.tap", .select, "s"),
+            ("Add", "plus.circle", .addJointBone, "a"),
+            ("Delete", "trash", .delete, "d")
+        ]
+
+        for (title, iconName, tool, key) in toolInfo {
+            let button = NSButton()
+            button.setButtonType(.toggle)
+            button.bezelStyle = .texturedRounded
+            button.image = NSImage(systemSymbolName: iconName, accessibilityDescription: title)
+            button.toolTip = title
+            button.target = self
+            button.action = #selector(toolChanged(_:))
+            button.tag = tool.rawValue
+            button.keyEquivalent = key
+            toolButtonContainer.addArrangedSubview(button)
+            toolButtons.append(button)
+        }
+
+        leftStackView.addArrangedSubview(toolButtonContainer)
         
         // Create mode section
         let modeLabel = NSTextField(labelWithString: "Mode")
@@ -278,9 +297,12 @@ class SkeletalDocumentViewController: NSViewController {
             skeletalEditorView.leadingAnchor.constraint(equalTo: rightPanel.leadingAnchor),
             skeletalEditorView.trailingAnchor.constraint(equalTo: rightPanel.trailingAnchor),
             skeletalEditorView.bottomAnchor.constraint(equalTo: rightPanel.bottomAnchor),
+
+            // Tool button constraints
+            toolButtonContainer.heightAnchor.constraint(equalToConstant: 60),
+            toolButtonContainer.widthAnchor.constraint(equalToConstant: 334),
             
-            // Tool control width
-            toolPopUpButton.widthAnchor.constraint(equalToConstant: 334),
+
             modeSegmentedControl.widthAnchor.constraint(equalToConstant: 334),
             
             // Scroll view heights
@@ -300,19 +322,10 @@ class SkeletalDocumentViewController: NSViewController {
     
     // MARK: - Actions
     
-    @objc func toolChanged(_ sender: NSPopUpButton) {
-        switch sender.indexOfSelectedItem {
-        case 0:
-            skeletalEditorView.currentTool = .move
-        case 1:
-            skeletalEditorView.currentTool = .select
-        case 2:
-            skeletalEditorView.currentTool = .addJointBone
-        case 3:
-            skeletalEditorView.currentTool = .delete
-        default:
-            skeletalEditorView.currentTool = .move
-        }
+    @objc func toolChanged(_ sender: NSButton) {
+        guard let tool = SkeletalEditorView.SkeletalTool(rawValue: sender.tag) else { return }
+        skeletalEditorView.currentTool = tool
+        updateToolSelection(for: tool)
     }
     
     @objc func modeChanged(_ sender: NSSegmentedControl) {
@@ -320,15 +333,12 @@ class SkeletalDocumentViewController: NSViewController {
     }
     
     func updateToolSelection(for tool: SkeletalEditorView.SkeletalTool) {
-        switch tool {
-        case .move:
-            toolPopUpButton.selectItem(at: 0)
-        case .select:
-            toolPopUpButton.selectItem(at: 1)
-        case .addJointBone:
-            toolPopUpButton.selectItem(at: 2)
-        case .delete:
-            toolPopUpButton.selectItem(at: 3)
+        for button in toolButtons {
+            if button.tag == tool.rawValue {
+                button.state = .on
+            } else {
+                button.state = .off
+            }
         }
     }
     
