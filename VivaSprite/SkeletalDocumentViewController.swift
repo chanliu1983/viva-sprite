@@ -14,7 +14,7 @@ class SkeletalDocumentViewController: NSViewController {
     
     var skeletalEditorView: SkeletalEditorView!
     private var toolButtons: [NSButton] = []
-    var modeSegmentedControl: NSSegmentedControl!
+    private var modeButtons: [NSButton] = []
   private var propertiesStackView: NSStackView!
     
     // MARK: - Properties
@@ -49,6 +49,10 @@ class SkeletalDocumentViewController: NSViewController {
         // Set initial tool to Move mode
         skeletalEditorView.currentTool = .move
         updateToolSelection(for: .move)
+
+        // Set initial mode to Direct
+        skeletalEditorView.currentMode = .direct
+        updateModeSelection(for: .direct)
     }
     
     override func viewDidAppear() {
@@ -233,14 +237,31 @@ class SkeletalDocumentViewController: NSViewController {
         leftStackView.addArrangedSubview(modeLabel)
         
         // Setup mode control
-        modeSegmentedControl = NSSegmentedControl()
-        modeSegmentedControl.segmentCount = 2
-        modeSegmentedControl.setLabel("Direct", forSegment: 0)
-        modeSegmentedControl.setLabel("IK", forSegment: 1)
-        modeSegmentedControl.selectedSegment = 0
-        modeSegmentedControl.target = self
-        modeSegmentedControl.action = #selector(modeChanged(_:))
-        leftStackView.addArrangedSubview(modeSegmentedControl)
+        let modeButtonContainer = NSStackView()
+        modeButtonContainer.orientation = .horizontal
+        modeButtonContainer.spacing = 0
+        modeButtonContainer.distribution = .fillEqually
+
+        let modeInfo: [(String, String, SkeletalEditorView.SkeletalMode, String)] = [
+            ("Direct", "arrow.up.and.down.and.arrow.left.and.right", .direct, "q"),
+            ("IK", "move.3d", .ik, "w")
+        ]
+
+        for (title, iconName, mode, key) in modeInfo {
+            let button = NSButton()
+            button.setButtonType(.toggle)
+            button.bezelStyle = .texturedRounded
+            button.image = NSImage(systemSymbolName: iconName, accessibilityDescription: title)
+            button.toolTip = title
+            button.target = self
+            button.action = #selector(modeChanged(_:))
+            button.tag = mode.rawValue
+            button.keyEquivalent = key
+            modeButtonContainer.addArrangedSubview(button)
+            modeButtons.append(button)
+        }
+
+        leftStackView.addArrangedSubview(modeButtonContainer)
         
 
         
@@ -303,7 +324,8 @@ class SkeletalDocumentViewController: NSViewController {
             toolButtonContainer.widthAnchor.constraint(equalToConstant: 334),
             
 
-            modeSegmentedControl.widthAnchor.constraint(equalToConstant: 334),
+            modeButtonContainer.heightAnchor.constraint(equalToConstant: 60),
+            modeButtonContainer.widthAnchor.constraint(equalToConstant: 334),
             
             // Scroll view heights
             propertiesScrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
@@ -328,8 +350,20 @@ class SkeletalDocumentViewController: NSViewController {
         updateToolSelection(for: tool)
     }
     
-    @objc func modeChanged(_ sender: NSSegmentedControl) {
-        skeletalEditorView.toggleIKMode()
+    @objc func modeChanged(_ sender: NSButton) {
+        guard let mode = SkeletalEditorView.SkeletalMode(rawValue: sender.tag) else { return }
+        skeletalEditorView.setMode(mode)
+        updateModeSelection(for: mode)
+    }
+
+    func updateModeSelection(for mode: SkeletalEditorView.SkeletalMode) {
+        for button in modeButtons {
+            if button.tag == mode.rawValue {
+                button.state = .on
+            } else {
+                button.state = .off
+            }
+        }
     }
     
     func updateToolSelection(for tool: SkeletalEditorView.SkeletalTool) {

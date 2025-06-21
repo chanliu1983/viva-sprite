@@ -32,7 +32,12 @@ class SkeletalEditorView: NSView {
     private var selectedBone: Bone?
     private var isDragging = false
     private var dragOffset: simd_float2 = simd_float2(0, 0)
-    private var isIKMode = false
+    enum SkeletalMode: Int {
+        case direct = 0
+        case ik = 1
+    }
+    
+    var currentMode: SkeletalMode = .direct
 
     private var ikBonePaths: [[Bone]] = [] // Store individual bone paths for debugging
     
@@ -57,6 +62,35 @@ class SkeletalEditorView: NSView {
     
     override var acceptsFirstResponder: Bool {
         return true
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        guard let characters = event.characters?.lowercased() else { return }
+        
+        let parentController = findParentViewController() as? SkeletalDocumentViewController
+
+        switch characters {
+        case "q":
+            setMode(.direct)
+            parentController?.updateModeSelection(for: .direct)
+        case "w":
+            setMode(.ik)
+            parentController?.updateModeSelection(for: .ik)
+        case "m":
+            currentTool = .move
+            parentController?.updateToolSelection(for: .move)
+        case "s":
+            currentTool = .select
+            parentController?.updateToolSelection(for: .select)
+        case "a":
+            currentTool = .addJointBone
+            parentController?.updateToolSelection(for: .addJointBone)
+        case "d":
+            currentTool = .delete
+            parentController?.updateToolSelection(for: .delete)
+        default:
+            super.keyDown(with: event)
+        }
     }
     private let boneWidth: CGFloat = 4.0
     private let selectedBoneWidth: CGFloat = 6.0
@@ -111,7 +145,7 @@ class SkeletalEditorView: NSView {
         drawJoints(context: context, skeleton: skeleton)
         
         // Draw path list overlay if in IK mode
-        if isIKMode {
+        if currentMode == .ik {
             drawPathList(context: context)
         }
     }
@@ -224,7 +258,7 @@ class SkeletalEditorView: NSView {
             
             let isSelected = selectedBone?.id == bone.id
             let isInDisplayedPath: Bool = {
-                if isIKMode, let selected = selectedJoint, !ikBonePaths.isEmpty {
+                if currentMode == .ik, let selected = selectedJoint, !ikBonePaths.isEmpty {
                     // Find the bone paths that start from the selected joint
                     for bonePath in ikBonePaths {
                         if let firstJoint = bonePath.first?.startJoint, firstJoint === selected || bonePath.first?.endJoint === selected {
@@ -508,7 +542,7 @@ class SkeletalEditorView: NSView {
                             skeleton.addBone(newBone)
                             
                             // Rebuild IK chain if in IK mode and we have a selected joint
-                            if isIKMode, let selectedJoint = selectedJoint {
+                            if currentMode == .ik, let selectedJoint = selectedJoint {
                                 buildIKChain(to: selectedJoint)
                             }
                             
@@ -533,7 +567,7 @@ class SkeletalEditorView: NSView {
                 skeleton.addJoint(newJoint)
                 
                 // Rebuild IK chain if in IK mode and we have a selected joint
-                if isIKMode, let selectedJoint = selectedJoint {
+                if currentMode == .ik, let selectedJoint = selectedJoint {
                     buildIKChain(to: selectedJoint)
                 }
                 
@@ -590,7 +624,7 @@ class SkeletalEditorView: NSView {
             selectedBone = nil
             delegate?.skeletalEditor(self, didSelectJoint: joint)
             
-            if isIKMode {
+            if currentMode == .ik {
                 buildIKChain(to: joint)
                 isDragging = true
                 dragOffset = joint.position - (worldPoint - canvasOffset)
@@ -628,7 +662,7 @@ class SkeletalEditorView: NSView {
             return
         }
         guard isDragging, let joint = selectedJoint else { return }
-        if isIKMode {
+        if currentMode == .ik {
             // In IK mode, use global iterative constraint solver
             if !joint.isFixed {
                 let targetPosition = (worldPoint - canvasOffset) + dragOffset
@@ -648,31 +682,6 @@ class SkeletalEditorView: NSView {
     override func mouseUp(with event: NSEvent) {
         isDragging = false
         isPanning = false
-    }
-    
-    override func keyDown(with event: NSEvent) {
-        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        
-        switch key {
-        case "s":
-            currentTool = .select
-        case "m":
-            currentTool = .move
-        case "a":
-            currentTool = .addJointBone
-        case "d":
-            currentTool = .delete
-        default:
-            super.keyDown(with: event)
-            return
-        }
-        
-        // Update the tool selection in the parent controller
-        if let parentController = findParentViewController() as? SkeletalDocumentViewController {
-            parentController.updateToolSelection(for: currentTool)
-        }
-        
-        needsDisplay = true
     }
     
     private func findParentViewController() -> NSViewController? {
@@ -974,9 +983,9 @@ class SkeletalEditorView: NSView {
     
     // MARK: - Public Methods
     
-    func toggleIKMode() {
-        isIKMode.toggle()
-        if !isIKMode {
+        func setMode(_ mode: SkeletalMode) {
+        currentMode = mode
+        if currentMode == .direct {
             ikBonePaths.removeAll()
         } else {
             // When entering IK mode, update all bone original lengths to current lengths
@@ -1010,7 +1019,7 @@ class SkeletalEditorView: NSView {
         skeleton.addJoint(joint)
         
         // Rebuild IK chain if in IK mode and we have a selected joint
-        if isIKMode, let selectedJoint = selectedJoint {
+        if currentMode == .ik, let selectedJoint = selectedJoint {
             buildIKChain(to: selectedJoint)
         }
         
@@ -1027,7 +1036,7 @@ class SkeletalEditorView: NSView {
         skeleton.addBone(bone)
         
         // Rebuild IK chain if in IK mode and we have a selected joint
-        if isIKMode, let selectedJoint = selectedJoint {
+        if currentMode == .ik, let selectedJoint = selectedJoint {
             buildIKChain(to: selectedJoint)
         }
         
@@ -1042,14 +1051,14 @@ class SkeletalEditorView: NSView {
             skeleton.removeJoint(joint)
             selectedJoint = nil
             // Clear IK chain since selected joint was deleted
-            if isIKMode {
+            if currentMode == .ik {
                 ikBonePaths.removeAll()
             }
         } else if let bone = selectedBone {
             skeleton.removeBone(bone)
             selectedBone = nil
             // Rebuild IK chain if in IK mode
-            if isIKMode {
+            if currentMode == .ik {
                 if let selectedJoint = selectedJoint {
                     buildIKChain(to: selectedJoint)
                 } else {
