@@ -34,10 +34,12 @@ class PixelArtCanvasView: NSView {
     
     var currentTool: PixelArtTool = .pen
     var currentColor: NSColor = .black
+    var brushSize: Int = 1 // Brush size from 1 to 5 pixels
     
     private let pixelSize: CGFloat = 16.0
     private var isDrawing = false
     private var lastDrawnPixel: (row: Int, col: Int)? = nil
+    private var drawnPixelsInStroke: Set<String> = [] // Track pixels drawn in current stroke
     
     // MARK: - Initialization
     
@@ -170,12 +172,13 @@ class PixelArtCanvasView: NSView {
         if let (row, col) = pixelCoordinates(from: point) {
             isDrawing = true
             lastDrawnPixel = (row, col)
+            drawnPixelsInStroke.removeAll()
             
             switch currentTool {
             case .pen:
-                drawPixel(at: row, col: col, color: currentColor)
+                drawBrush(at: row, col: col, color: currentColor)
             case .eraser:
-                erasePixel(at: row, col: col)
+                eraseBrush(at: row, col: col)
             }
         }
     }
@@ -195,9 +198,9 @@ class PixelArtCanvasView: NSView {
             
             switch currentTool {
             case .pen:
-                drawPixel(at: row, col: col, color: currentColor)
+                drawBrush(at: row, col: col, color: currentColor)
             case .eraser:
-                erasePixel(at: row, col: col)
+                eraseBrush(at: row, col: col)
             }
         }
     }
@@ -205,9 +208,72 @@ class PixelArtCanvasView: NSView {
     override func mouseUp(with event: NSEvent) {
         isDrawing = false
         lastDrawnPixel = nil
+        drawnPixelsInStroke.removeAll()
     }
     
     // MARK: - Drawing Operations
+    
+    private func drawBrush(at row: Int, col: Int, color: NSColor) {
+        guard var pixelArt = pixelArt else { return }
+        
+        var pixelsChanged = false
+        let halfSize = brushSize / 2
+        
+        for r in (row - halfSize)...(row + halfSize) {
+            for c in (col - halfSize)...(col + halfSize) {
+                let pixelKey = "\(r),\(c)"
+                
+                // Skip if already drawn in this stroke
+                if drawnPixelsInStroke.contains(pixelKey) {
+                    continue
+                }
+                
+                // Check bounds
+                if r >= 0 && r < pixelArt.height && c >= 0 && c < pixelArt.width {
+                    pixelArt.pixels[r][c] = color
+                    drawnPixelsInStroke.insert(pixelKey)
+                    pixelsChanged = true
+                }
+            }
+        }
+        
+        if pixelsChanged {
+            self.pixelArt = pixelArt
+            needsDisplay = true
+            delegate?.pixelArtCanvasDidChange(self)
+        }
+    }
+    
+    private func eraseBrush(at row: Int, col: Int) {
+        guard var pixelArt = pixelArt else { return }
+        
+        var pixelsChanged = false
+        let halfSize = brushSize / 2
+        
+        for r in (row - halfSize)...(row + halfSize) {
+            for c in (col - halfSize)...(col + halfSize) {
+                let pixelKey = "\(r),\(c)"
+                
+                // Skip if already drawn in this stroke
+                if drawnPixelsInStroke.contains(pixelKey) {
+                    continue
+                }
+                
+                // Check bounds
+                if r >= 0 && r < pixelArt.height && c >= 0 && c < pixelArt.width {
+                    pixelArt.pixels[r][c] = nil
+                    drawnPixelsInStroke.insert(pixelKey)
+                    pixelsChanged = true
+                }
+            }
+        }
+        
+        if pixelsChanged {
+            self.pixelArt = pixelArt
+            needsDisplay = true
+            delegate?.pixelArtCanvasDidChange(self)
+        }
+    }
     
     private func drawPixel(at row: Int, col: Int, color: NSColor) {
         print("[DEBUG] drawPixel called at row: \(row), col: \(col), color: \(color)")

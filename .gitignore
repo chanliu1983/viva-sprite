@@ -88,3 +88,5 @@ fastlane/test_output
 # https://github.com/johnno1962/injectionforxcode
 
 iOSInjectionProject/
+VivaSprite.xcodeproj/project.xcworkspace/xcuserdata/leiliu.xcuserdatad/UserInterfaceState.xcuserstate
+.DS_Store

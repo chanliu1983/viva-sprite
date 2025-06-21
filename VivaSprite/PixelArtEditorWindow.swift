@@ -24,6 +24,7 @@ class PixelArtEditorWindow: NSWindowController {
     private var canvasView: PixelArtCanvasView!
     private var colorPalette: ColorPalette!
     private var toolSegmentedControl: NSSegmentedControl!
+    private var brushSizeControls: NSStackView!
     private var sizeControls: NSStackView!
     private var anchorControls: NSStackView!
     private var nameTextField: NSTextField!
@@ -138,6 +139,9 @@ class PixelArtEditorWindow: NSWindowController {
         toolSegmentedControl.action = #selector(toolChanged)
         toolSegmentedControl.translatesAutoresizingMaskIntoConstraints = false
         
+        // Brush size controls
+        setupBrushSizeControls()
+        
         // Size controls
         setupSizeControls()
         
@@ -172,6 +176,39 @@ class PixelArtEditorWindow: NSWindowController {
         sizeControls.addArrangedSubview(heightLabel)
         sizeControls.addArrangedSubview(heightField)
         sizeControls.addArrangedSubview(resizeButton)
+    }
+    
+    private func setupBrushSizeControls() {
+        brushSizeControls = NSStackView()
+        brushSizeControls.orientation = .horizontal
+        brushSizeControls.spacing = 8
+        brushSizeControls.translatesAutoresizingMaskIntoConstraints = false
+        
+        let brushSizeLabel = NSTextField(labelWithString: "Brush Size:")
+        
+        let brushSizeSlider = NSSlider()
+        brushSizeSlider.minValue = 1
+        brushSizeSlider.maxValue = 5
+        brushSizeSlider.integerValue = 1
+        brushSizeSlider.numberOfTickMarks = 5
+        brushSizeSlider.allowsTickMarkValuesOnly = true
+        brushSizeSlider.tickMarkPosition = .below
+        brushSizeSlider.target = self
+        brushSizeSlider.action = #selector(brushSizeChanged)
+        brushSizeSlider.translatesAutoresizingMaskIntoConstraints = false
+        
+        let brushSizeValueLabel = NSTextField(labelWithString: "1")
+        brushSizeValueLabel.tag = 999 // Use a unique tag to identify this label
+        brushSizeValueLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        brushSizeControls.addArrangedSubview(brushSizeLabel)
+        brushSizeControls.addArrangedSubview(brushSizeSlider)
+        brushSizeControls.addArrangedSubview(brushSizeValueLabel)
+        
+        // Set slider width constraint
+        NSLayoutConstraint.activate([
+            brushSizeSlider.widthAnchor.constraint(equalToConstant: 100)
+        ])
     }
     
     private func setupAnchorControls() {
@@ -237,6 +274,7 @@ class PixelArtEditorWindow: NSWindowController {
         
         controlsContainer.addArrangedSubview(nameTextField)
         controlsContainer.addArrangedSubview(toolSegmentedControl)
+        controlsContainer.addArrangedSubview(brushSizeControls)
         controlsContainer.addArrangedSubview(sizeControls)
         controlsContainer.addArrangedSubview(anchorControls)
         
@@ -272,6 +310,16 @@ class PixelArtEditorWindow: NSWindowController {
             canvasView.currentTool = .eraser
         default:
             break
+        }
+    }
+    
+    @objc private func brushSizeChanged(_ sender: NSSlider) {
+        let brushSize = sender.integerValue
+        canvasView.brushSize = brushSize
+        
+        // Update the value label
+        if let valueLabel = brushSizeControls.arrangedSubviews.compactMap({ $0 as? NSTextField }).first(where: { $0.tag == 999 }) {
+            valueLabel.stringValue = "\(brushSize)"
         }
     }
     
