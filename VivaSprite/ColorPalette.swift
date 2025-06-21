@@ -113,13 +113,6 @@ class ColorPalette: NSView {
     
     // MARK: - Public Methods
     
-    func selectColor(_ color: NSColor) {
-        if let index = colors.firstIndex(of: color) {
-            selectedColorIndex = index
-            needsDisplay = true
-        }
-    }
-    
     var selectedColor: NSColor {
         return colors[selectedColorIndex]
     }

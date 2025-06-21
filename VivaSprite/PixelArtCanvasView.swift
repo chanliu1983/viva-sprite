@@ -393,23 +393,6 @@ class PixelArtCanvasView: NSView {
         delegate?.pixelArtCanvasDidChange(self)
     }
     
-    func setPixel(at row: Int, col: Int, color: NSColor?) {
-        guard var pixelArt = pixelArt else { return }
-        guard row >= 0 && row < pixelArt.height && col >= 0 && col < pixelArt.width else { return }
-        
-        pixelArt.pixels[row][col] = color
-        self.pixelArt = pixelArt
-        needsDisplay = true
-        delegate?.pixelArtCanvasDidChange(self)
-    }
-    
-    func getPixel(at row: Int, col: Int) -> NSColor? {
-        guard let pixelArt = pixelArt else { return nil }
-        guard row >= 0 && row < pixelArt.height && col >= 0 && col < pixelArt.width else { return nil }
-        
-        return pixelArt.pixels[row][col]
-    }
-    
     // MARK: - Keyboard Handling
     
     override var acceptsFirstResponder: Bool {
@@ -430,72 +413,4 @@ class PixelArtCanvasView: NSView {
         }
     }
     
-    // MARK: - Undo/Redo Support
-    
-    private var undoStack: [[[NSColor?]]] = []
-    private var redoStack: [[[NSColor?]]] = []
-    private let maxUndoSteps = 50
-    
-    func saveUndoState() {
-        guard let pixelArt = pixelArt else { return }
-        
-        // Deep copy the current state
-        let currentState = pixelArt.pixels.map { row in
-            row.map { $0 }
-        }
-        
-        undoStack.append(currentState)
-        
-        // Limit undo stack size
-        if undoStack.count > maxUndoSteps {
-            undoStack.removeFirst()
-        }
-        
-        // Clear redo stack when new action is performed
-        redoStack.removeAll()
-    }
-    
-    func undo() {
-        guard var pixelArt = pixelArt, !undoStack.isEmpty else { return }
-        
-        // Save current state to redo stack
-        let currentState = pixelArt.pixels.map { row in
-            row.map { $0 }
-        }
-        redoStack.append(currentState)
-        
-        // Restore previous state
-        let previousState = undoStack.removeLast()
-        pixelArt.pixels = previousState
-        self.pixelArt = pixelArt
-        
-        needsDisplay = true
-        delegate?.pixelArtCanvasDidChange(self)
-    }
-    
-    func redo() {
-        guard var pixelArt = pixelArt, !redoStack.isEmpty else { return }
-        
-        // Save current state to undo stack
-        let currentState = pixelArt.pixels.map { row in
-            row.map { $0 }
-        }
-        undoStack.append(currentState)
-        
-        // Restore next state
-        let nextState = redoStack.removeLast()
-        pixelArt.pixels = nextState
-        self.pixelArt = pixelArt
-        
-        needsDisplay = true
-        delegate?.pixelArtCanvasDidChange(self)
-    }
-    
-    var canUndo: Bool {
-        return !undoStack.isEmpty
-    }
-    
-    var canRedo: Bool {
-        return !redoStack.isEmpty
-    }
 }

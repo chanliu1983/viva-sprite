@@ -733,23 +733,6 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
         }
     }
     
-    @objc private func clearCanvas() {
-        let alert = NSAlert()
-        alert.messageText = "Clear Canvas"
-        alert.informativeText = "Are you sure you want to clear the entire canvas?"
-        alert.addButton(withTitle: "Clear")
-        alert.addButton(withTitle: "Cancel")
-        
-        if alert.runModal() == .alertFirstButtonReturn {
-            for row in 0..<pixelArt.height {
-                for col in 0..<pixelArt.width {
-                    pixelArt.pixels[row][col] = nil
-                }
-            }
-            canvasView.needsDisplay = true
-            updateBone()
-        }
-    }
 }
 
 // MARK: - ColorPaletteDelegate
