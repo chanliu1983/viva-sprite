@@ -523,6 +523,13 @@ class SkeletalDocumentViewController: NSViewController {
         isModified = true
     }
     
+    @objc func bonePixelArtOrderChanged(_ sender: NSSlider) {
+        guard let bone = selectedBone else { return }
+        bone.pixelArtOrder = sender.integerValue
+        skeletalEditorView.needsDisplay = true
+        isModified = true
+    }
+    
     private func setupJointProperties(_ joint: Joint) {
         let titleLabel = NSTextField(labelWithString: "Joint Properties")
         titleLabel.font = NSFont.boldSystemFont(ofSize: 14)
@@ -654,6 +661,18 @@ class SkeletalDocumentViewController: NSViewController {
             return slider
         }())
         propertiesStackView.addArrangedSubview(rotationContainer)
+        
+        // Pixel Art Order
+        let orderContainer = createPropertyRow(label: "Pixel Art Order:", control: {
+            let slider = NSSlider()
+            slider.minValue = -10
+            slider.maxValue = 10
+            slider.integerValue = bone.pixelArtOrder
+            slider.target = self
+            slider.action = #selector(bonePixelArtOrderChanged(_:))
+            return slider
+        }())
+        propertiesStackView.addArrangedSubview(orderContainer)
         
         // Pixel Art
         let pixelArtContainer = createPropertyRow(label: "Pixel Art:", control: {

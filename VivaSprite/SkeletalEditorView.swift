@@ -437,7 +437,9 @@ class SkeletalEditorView: NSView {
     }
     
     private func drawPixelArtAttachments(context: CGContext, skeleton: Skeleton) {
-        for bone in skeleton.bones {
+        // Sort bones by order (smaller values drawn first, behind others)
+        let sortedBones = skeleton.bones.sorted { $0.pixelArtOrder < $1.pixelArtOrder }
+        for bone in sortedBones {
             guard let pixelArt = bone.pixelArt else { continue }
             
             let startPos = bone.startJoint.worldPosition()
@@ -1021,7 +1023,10 @@ class SkeletalEditorView: NSView {
         // Step 1: Calculate the bounding box of all pixel art attachments
         var boundingBox: CGRect? = nil
         
-        for bone in skeleton.bones {
+        // Sort bones by order for consistent rendering
+        let sortedBones = skeleton.bones.sorted { $0.pixelArtOrder < $1.pixelArtOrder }
+        
+        for bone in sortedBones {
             guard let pixelArt = bone.pixelArt else { continue }
             
             let startPos = bone.startJoint.worldPosition()
@@ -1077,8 +1082,8 @@ class SkeletalEditorView: NSView {
         // Translate the context so the drawing is within the image bounds
         context.translateBy(x: -finalBoundingBox.origin.x, y: -finalBoundingBox.origin.y)
         
-        // Draw each pixel art attachment
-        for bone in skeleton.bones {
+        // Draw each pixel art attachment in order
+        for bone in sortedBones {
             guard let pixelArt = bone.pixelArt else { continue }
             
             let startPos = bone.startJoint.worldPosition()

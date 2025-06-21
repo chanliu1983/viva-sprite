@@ -109,6 +109,7 @@ class Bone: Hashable {
     var pixelArt: PixelArtData?
     var pixelArtScale: Float = 1.0
     var pixelArtRotation: Float = 0.0 // In radians
+    var pixelArtOrder: Int = 0 // Drawing order, smaller values are drawn first (behind)
     var thickness: Float = 10.0
     var color: NSColor = .brown
     var originalLength: Float // Store the original bone length
@@ -145,6 +146,7 @@ class Bone: Hashable {
         }
         self.pixelArtScale = data.pixelArtScale ?? 1.0
         self.pixelArtRotation = data.pixelArtRotation ?? 0.0
+        self.pixelArtOrder = data.pixelArtOrder ?? 0
     }
 
     var data: BoneData {
@@ -532,6 +534,7 @@ struct BoneData: Codable {
     let pixelArtId: String?
     let pixelArtScale: Float?
     let pixelArtRotation: Float?
+    let pixelArtOrder: Int?
     
     init(from bone: Bone) {
         self.id = bone.id.uuidString
@@ -544,6 +547,7 @@ struct BoneData: Codable {
         self.pixelArtId = bone.pixelArt?.id.uuidString
         self.pixelArtScale = bone.pixelArtScale
         self.pixelArtRotation = bone.pixelArtRotation
+        self.pixelArtOrder = bone.pixelArtOrder
     }
 }
 
