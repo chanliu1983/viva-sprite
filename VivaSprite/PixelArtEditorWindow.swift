@@ -44,7 +44,7 @@ class PixelArtEditorWindow: NSWindowController {
         
         // Create window
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false

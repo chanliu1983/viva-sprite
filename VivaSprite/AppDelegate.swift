@@ -11,7 +11,15 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
+        if let window = NSApplication.shared.windows.first {
+            let screenFrame = window.screen?.visibleFrame ?? NSRect.zero
+            let newWidth: CGFloat = 1200
+            let newHeight: CGFloat = 800
+            let newX = (screenFrame.width - newWidth) / 2
+            let newY = (screenFrame.height - newHeight) / 2
+            let newFrame = NSRect(x: newX, y: newY, width: newWidth, height: newHeight)
+            window.setFrame(newFrame, display: true)
+        }
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
