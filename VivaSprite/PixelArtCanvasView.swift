@@ -7,9 +7,14 @@
 
 import Cocoa
 
+protocol PixelArtCanvasViewDelegate: AnyObject {
+    func pixelArtCanvasDidChange(_ canvas: PixelArtCanvasView)
+}
+
 enum PixelArtTool {
     case pen
     case eraser
+    case pan
 }
 
 class PixelArtCanvasView: NSView {
@@ -35,11 +40,21 @@ class PixelArtCanvasView: NSView {
     var currentTool: PixelArtTool = .pen
     var currentColor: NSColor = .black
     var brushSize: Int = 1 // Brush size from 1 to 5 pixels
+    var zoomFactor: CGFloat = 1.0 {
+        didSet {
+            updateCanvasSize()
+            needsDisplay = true
+        }
+    }
     
     private let pixelSize: CGFloat = 16.0
     private var isDrawing = false
     private var lastDrawnPixel: (row: Int, col: Int)? = nil
     private var drawnPixelsInStroke: Set<String> = [] // Track pixels drawn in current stroke
+    
+    // Pan functionality
+    private var isPanning = false
+    private var lastPanPoint: NSPoint = NSPoint.zero
     
     // MARK: - Initialization
     
@@ -62,8 +77,8 @@ class PixelArtCanvasView: NSView {
         guard let pixelArt = pixelArt else { return }
         
         let newSize = NSSize(
-            width: CGFloat(pixelArt.width) * pixelSize,
-            height: CGFloat(pixelArt.height) * pixelSize
+            width: CGFloat(pixelArt.width) * pixelSize * zoomFactor,
+            height: CGFloat(pixelArt.height) * pixelSize * zoomFactor
         )
         
         setFrameSize(newSize)
@@ -77,33 +92,31 @@ class PixelArtCanvasView: NSView {
         guard let pixelArt = pixelArt else { return }
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         
-        // Clear background
+        // Clear background to white for better contrast
         context.setFillColor(NSColor.white.cgColor)
         context.fill(bounds)
         
-        // Draw checkerboard pattern for transparency
-        drawTransparencyPattern(context: context)
-        
-        // Draw pixels
+        // Draw pixels with improved rendering
         drawPixels(context: context, pixelArt: pixelArt)
         
-        // Draw grid
-        drawGrid(context: context, pixelArt: pixelArt)
+        // Draw grid (disabled for better clarity)
+        // drawGrid(context: context, pixelArt: pixelArt)
     }
     
     private func drawTransparencyPattern(context: CGContext) {
         guard let pixelArt = pixelArt else { return }
         
-        let checkerSize: CGFloat = pixelSize / 2
+        let scaledPixelSize = pixelSize * zoomFactor
+        let checkerSize: CGFloat = scaledPixelSize / 2
         context.setFillColor(NSColor.lightGray.cgColor)
         
         for row in 0..<pixelArt.height {
             for col in 0..<pixelArt.width {
                 let pixelRect = CGRect(
-                    x: CGFloat(col) * pixelSize,
-                    y: CGFloat(pixelArt.height - 1 - row) * pixelSize,
-                    width: pixelSize,
-                    height: pixelSize
+                    x: CGFloat(col) * scaledPixelSize,
+                    y: CGFloat(pixelArt.height - 1 - row) * scaledPixelSize,
+                    width: scaledPixelSize,
+                    height: scaledPixelSize
                 )
                 
                 // Draw checkerboard pattern
@@ -125,17 +138,34 @@ class PixelArtCanvasView: NSView {
     }
     
     private func drawPixels(context: CGContext, pixelArt: PixelArtData) {
+        let scaledPixelSize = pixelSize * zoomFactor
+        
+        // Enable anti-aliasing for smoother rendering
+        context.setShouldAntialias(true)
+        context.interpolationQuality = .high
+        
         for row in 0..<pixelArt.height {
             for col in 0..<pixelArt.width {
-                guard let color = pixelArt.pixels[row][col] else { continue }
+                guard let color = pixelArt.pixels[row][col] else {
+                    // Draw transparent pixels as white background
+                    context.setFillColor(NSColor.white.cgColor)
+                    let rect = CGRect(
+                        x: CGFloat(col) * scaledPixelSize,
+                        y: CGFloat(pixelArt.height - 1 - row) * scaledPixelSize,
+                        width: scaledPixelSize,
+                        height: scaledPixelSize
+                    )
+                    context.fill(rect)
+                    continue
+                }
                 
                 context.setFillColor(color.cgColor)
                 
                 let rect = CGRect(
-                    x: CGFloat(col) * pixelSize + 1,
-                    y: CGFloat(pixelArt.height - 1 - row) * pixelSize + 1,
-                    width: pixelSize - 2,
-                    height: pixelSize - 2
+                    x: CGFloat(col) * scaledPixelSize,
+                    y: CGFloat(pixelArt.height - 1 - row) * scaledPixelSize,
+                    width: scaledPixelSize,
+                    height: scaledPixelSize
                 )
                 
                 context.fill(rect)
@@ -147,16 +177,18 @@ class PixelArtCanvasView: NSView {
         context.setStrokeColor(NSColor.gray.cgColor)
         context.setLineWidth(0.5)
         
+        let scaledPixelSize = pixelSize * zoomFactor
+        
         // Vertical lines
         for i in 0...pixelArt.width {
-            let x = CGFloat(i) * pixelSize
+            let x = CGFloat(i) * scaledPixelSize
             context.move(to: CGPoint(x: x, y: 0))
             context.addLine(to: CGPoint(x: x, y: bounds.height))
         }
         
         // Horizontal lines
         for i in 0...pixelArt.height {
-            let y = CGFloat(i) * pixelSize
+            let y = CGFloat(i) * scaledPixelSize
             context.move(to: CGPoint(x: 0, y: y))
             context.addLine(to: CGPoint(x: bounds.width, y: y))
         }
@@ -169,44 +201,77 @@ class PixelArtCanvasView: NSView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         
-        if let (row, col) = pixelCoordinates(from: point) {
-            isDrawing = true
-            lastDrawnPixel = (row, col)
-            drawnPixelsInStroke.removeAll()
-            
-            switch currentTool {
-            case .pen:
-                drawBrush(at: row, col: col, color: currentColor)
-            case .eraser:
-                eraseBrush(at: row, col: col)
+        switch currentTool {
+        case .pan:
+            isPanning = true
+            lastPanPoint = point
+        case .pen, .eraser:
+            if let (row, col) = pixelCoordinates(from: point) {
+                isDrawing = true
+                lastDrawnPixel = (row, col)
+                drawnPixelsInStroke.removeAll()
+                
+                switch currentTool {
+                case .pen:
+                    drawBrush(at: row, col: col, color: currentColor)
+                case .eraser:
+                    eraseBrush(at: row, col: col)
+                case .pan:
+                    break // Already handled above
+                }
             }
         }
     }
     
     override func mouseDragged(with event: NSEvent) {
-        guard isDrawing else { return }
-        
         let point = convert(event.locationInWindow, from: nil)
         
-        if let (row, col) = pixelCoordinates(from: point) {
-            // Avoid redrawing the same pixel
-            if let last = lastDrawnPixel, last.row == row && last.col == col {
-                return
+        switch currentTool {
+        case .pan:
+            if isPanning {
+                let deltaX = point.x - lastPanPoint.x
+                let deltaY = point.y - lastPanPoint.y
+                
+                // Get the scroll view and adjust its document visible rect
+                if let scrollView = enclosingScrollView {
+                    let currentRect = scrollView.documentVisibleRect
+                    let newRect = NSRect(
+                        x: currentRect.origin.x - deltaX,
+                        y: currentRect.origin.y - deltaY,
+                        width: currentRect.width,
+                        height: currentRect.height
+                    )
+                    scrollView.documentView?.scroll(newRect.origin)
+                }
+                
+                lastPanPoint = point
             }
+        case .pen, .eraser:
+            guard isDrawing else { return }
             
-            lastDrawnPixel = (row, col)
-            
-            switch currentTool {
-            case .pen:
-                drawBrush(at: row, col: col, color: currentColor)
-            case .eraser:
-                eraseBrush(at: row, col: col)
+            if let (row, col) = pixelCoordinates(from: point) {
+                // Avoid redrawing the same pixel
+                if let last = lastDrawnPixel, last.row == row && last.col == col {
+                    return
+                }
+                
+                lastDrawnPixel = (row, col)
+                
+                switch currentTool {
+                case .pen:
+                    drawBrush(at: row, col: col, color: currentColor)
+                case .eraser:
+                    eraseBrush(at: row, col: col)
+                case .pan:
+                    break // Already handled above
+                }
             }
         }
     }
     
     override func mouseUp(with event: NSEvent) {
         isDrawing = false
+        isPanning = false
         lastDrawnPixel = nil
         drawnPixelsInStroke.removeAll()
     }
@@ -301,8 +366,9 @@ class PixelArtCanvasView: NSView {
     private func pixelCoordinates(from point: NSPoint) -> (row: Int, col: Int)? {
         guard let pixelArt = pixelArt else { return nil }
         
-        let col = Int(point.x / pixelSize)
-        let row = pixelArt.height - 1 - Int(point.y / pixelSize)
+        let scaledPixelSize = pixelSize * zoomFactor
+        let col = Int(point.x / scaledPixelSize)
+        let row = pixelArt.height - 1 - Int(point.y / scaledPixelSize)
         
         guard row >= 0 && row < pixelArt.height && col >= 0 && col < pixelArt.width else {
             return nil
