@@ -223,17 +223,28 @@ class SkeletalEditorView: NSView {
             let endPos = CGPoint(x: CGFloat(endWorld.x + canvasOffset.x), y: CGFloat(endWorld.y + canvasOffset.y))
             
             let isSelected = selectedBone?.id == bone.id
-            let isInIKChain = isIKMode && ikBonePaths.contains { bonePath in
-                bonePath.contains { $0.id == bone.id }
-            }
-            
+            let isInDisplayedPath: Bool = {
+                if isIKMode, let selected = selectedJoint, !ikBonePaths.isEmpty {
+                    // Find the bone paths that start from the selected joint
+                    for bonePath in ikBonePaths {
+                        if let firstJoint = bonePath.first?.startJoint, firstJoint === selected || bonePath.first?.endJoint === selected {
+                            if bonePath.contains(where: { $0.id == bone.id }) {
+                                return true
+                            }
+                        }
+                    }
+                }
+                return false
+            }()
             let color: NSColor
             if isSelected {
                 color = selectedBoneColor
+            } else if isInDisplayedPath {
+                color = NSColor.systemYellow
             } else {
                 color = bone.color
             }
-            let width = isSelected ? selectedBoneWidth : boneWidth
+            let width = isSelected ? selectedBoneWidth : isInDisplayedPath ? boneWidth * 2 : boneWidth
             
             context.setStrokeColor(color.cgColor)
             context.setLineWidth(width)
@@ -335,12 +346,6 @@ class SkeletalEditorView: NSView {
             let worldPos = joint.worldPosition()
             let position = CGPoint(x: CGFloat(worldPos.x + canvasOffset.x), y: CGFloat(worldPos.y + canvasOffset.y))
             let isSelected = selectedJoint?.id == joint.id
-            let isInIKChain = isIKMode && ikBonePaths.contains { bonePath in
-                bonePath.contains { bone in
-                    bone.startJoint.id == joint.id || bone.endJoint.id == joint.id
-                }
-            }
-            
             let radius = isSelected ? selectedJointRadius : jointRadius
             let color: NSColor
             if joint.isFixed {
