@@ -40,6 +40,7 @@ class SkeletalEditorView: NSView {
     var currentMode: SkeletalMode = .direct
 
     private var ikBonePaths: [[Bone]] = [] // Store individual bone paths for debugging
+    private var showPathList: Bool = false // Flag to toggle path list display
     
     // Tool and canvas panning
     enum SkeletalTool: Int {
@@ -71,6 +72,14 @@ class SkeletalEditorView: NSView {
     }
     
     override func keyDown(with event: NSEvent) {
+        // Handle backtick key by keyCode (50) since character-based detection can be unreliable
+        if event.keyCode == 50 { // Backtick key code
+            showPathList.toggle()
+            needsDisplay = true
+            print("Path list toggled: \(showPathList)")
+            return
+        }
+        
         guard let characters = event.characters?.lowercased() else { return }
         
         let parentController = findParentViewController() as? SkeletalDocumentViewController
@@ -167,8 +176,8 @@ class SkeletalEditorView: NSView {
         // Draw joints
         drawJoints(context: context, skeleton: skeleton)
         
-        // Draw path list overlay if in IK mode
-        if currentMode == .ik {
+        // Draw path list overlay if in IK mode and flag is enabled
+        if currentMode == .ik && showPathList {
             drawPathList(context: context)
         }
         
@@ -371,12 +380,41 @@ class SkeletalEditorView: NSView {
     }
     
     private func drawPathList(context: CGContext) {
-        guard !ikBonePaths.isEmpty else { return }
-        
         let padding: CGFloat = 10
         let lineHeight: CGFloat = 20
         let backgroundColor = NSColor.black.withAlphaComponent(0.7)
         let textColor = NSColor.white
+        
+        // Show a message if no paths are available
+        if ikBonePaths.isEmpty {
+            let message = "Path List (No IK paths available)"
+            let textAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 14, weight: .medium),
+                .foregroundColor: textColor
+            ]
+            
+            let totalHeight = lineHeight + padding * 2
+            let backgroundRect = CGRect(
+                x: 0,
+                y: bounds.height - totalHeight,
+                width: bounds.width,
+                height: totalHeight
+            )
+            
+            context.setFillColor(backgroundColor.cgColor)
+            context.fill(backgroundRect)
+            
+            let displayText = message as NSString
+            let textRect = CGRect(
+                x: padding,
+                y: bounds.height - totalHeight + padding,
+                width: bounds.width - padding * 2,
+                height: lineHeight
+            )
+            
+            displayText.draw(in: textRect, withAttributes: textAttributes)
+            return
+        }
         
         // Calculate the height needed for all paths
         let totalHeight = CGFloat(ikBonePaths.count) * lineHeight + padding * 2
