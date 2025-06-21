@@ -54,6 +54,12 @@ class SkeletalEditorView: NSView {
     private var isPanning = false
     private var lastPanPoint: simd_float2 = simd_float2(0, 0)
     
+    // Zoom settings
+    private var zoomScale: CGFloat = 1.0
+    private let minZoom: CGFloat = 0.1
+    private let maxZoom: CGFloat = 5.0
+    private let zoomStep: CGFloat = 0.1
+    
     // Visual settings
     private let jointRadius: CGFloat = 8.0
     private let selectedJointRadius: CGFloat = 12.0
@@ -88,6 +94,10 @@ class SkeletalEditorView: NSView {
         case "d":
             currentTool = .delete
             parentController?.updateToolSelection(for: .delete)
+        case "+", "=":
+            zoomIn()
+        case "-":
+            zoomOut()
         default:
             super.keyDown(with: event)
         }
@@ -129,6 +139,16 @@ class SkeletalEditorView: NSView {
         context.setFillColor(NSColor.controlBackgroundColor.cgColor)
         context.fill(bounds)
         
+        // Apply zoom transformation
+        context.saveGState()
+        
+        // Scale from center of view
+        let centerX = bounds.width / 2
+        let centerY = bounds.height / 2
+        context.translateBy(x: centerX, y: centerY)
+        context.scaleBy(x: zoomScale, y: zoomScale)
+        context.translateBy(x: -centerX, y: -centerY)
+        
         // Draw grid
         drawGrid(context: context)
         
@@ -151,6 +171,11 @@ class SkeletalEditorView: NSView {
         if currentMode == .ik {
             drawPathList(context: context)
         }
+        
+        context.restoreGState()
+        
+        // Draw zoom indicator (not affected by zoom transformation)
+        drawZoomIndicator(context: context)
     }
     
     private func drawGrid(context: CGContext) {
@@ -257,9 +282,9 @@ class SkeletalEditorView: NSView {
         
         // Calculate canvas boundaries with offset
         let canvasLeft = CGFloat(canvasOffset.x - Float(skeleton.canvasWidth) / 2)
-        let canvasRight = CGFloat(canvasOffset.x + Float(skeleton.canvasWidth) / 2)
+        let _ = CGFloat(canvasOffset.x + Float(skeleton.canvasWidth) / 2)
         let canvasBottom = CGFloat(canvasOffset.y - Float(skeleton.canvasHeight) / 2)
-        let canvasTop = CGFloat(canvasOffset.y + Float(skeleton.canvasHeight) / 2)
+        let _ = CGFloat(canvasOffset.y + Float(skeleton.canvasHeight) / 2)
         
         // Set up dotted line style
         context.setStrokeColor(NSColor.systemGray.cgColor)
@@ -539,7 +564,7 @@ class SkeletalEditorView: NSView {
         }
         
         let point = convert(event.locationInWindow, from: nil)
-        let worldPoint = simd_float2(Float(point.x), Float(point.y))
+        let worldPoint = convertPointToWorldCoordinates(point)
         
         // Handle move tool for canvas panning
         if currentTool == .move {
@@ -688,7 +713,7 @@ class SkeletalEditorView: NSView {
     
     override func mouseDragged(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        let worldPoint = simd_float2(Float(point.x), Float(point.y))
+        let worldPoint = convertPointToWorldCoordinates(point)
         // Handle canvas panning with move tool
         if isPanning && currentTool == .move {
             let delta = worldPoint - lastPanPoint
@@ -1229,6 +1254,80 @@ class SkeletalEditorView: NSView {
         guard let joint = selectedJoint else { return }
         joint.isFixed.toggle()
         needsDisplay = true
+    }
+    
+    // MARK: - Coordinate Conversion
+    
+    private func convertPointToWorldCoordinates(_ point: CGPoint) -> simd_float2 {
+        // Convert screen coordinates to world coordinates accounting for zoom
+        let centerX = bounds.width / 2
+        let centerY = bounds.height / 2
+        
+        // Reverse the zoom transformation
+        let adjustedX = (point.x - centerX) / zoomScale + centerX
+        let adjustedY = (point.y - centerY) / zoomScale + centerY
+        
+        return simd_float2(Float(adjustedX), Float(adjustedY))
+    }
+    
+    // MARK: - Zoom Methods
+    
+    private func zoomIn() {
+        let newZoom = min(maxZoom, zoomScale + zoomStep)
+        if newZoom != zoomScale {
+            zoomScale = newZoom
+            needsDisplay = true
+        }
+    }
+    
+    private func zoomOut() {
+        let newZoom = max(minZoom, zoomScale - zoomStep)
+        if newZoom != zoomScale {
+            zoomScale = newZoom
+            needsDisplay = true
+        }
+    }
+    
+    private func drawZoomIndicator(context: CGContext) {
+        let zoomText = String(format: "%.0f%%", zoomScale * 100)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 14, weight: .medium),
+            .foregroundColor: NSColor.labelColor
+        ]
+        
+        let attributedString = NSAttributedString(string: zoomText, attributes: attributes)
+        let textSize = attributedString.size()
+        
+        // Position in top-right corner with padding
+        let padding: CGFloat = 10
+        let backgroundPadding: CGFloat = 6
+        let textRect = CGRect(
+            x: bounds.width - textSize.width - padding - backgroundPadding,
+            y: bounds.height - textSize.height - padding - backgroundPadding,
+            width: textSize.width + backgroundPadding * 2,
+            height: textSize.height + backgroundPadding * 2
+        )
+        
+        // Draw background
+        context.setFillColor(NSColor.controlBackgroundColor.withAlphaComponent(0.8).cgColor)
+        context.setStrokeColor(NSColor.separatorColor.cgColor)
+        context.setLineWidth(1.0)
+        let backgroundRect = CGRect(
+            x: textRect.origin.x - backgroundPadding,
+            y: textRect.origin.y - backgroundPadding,
+            width: textRect.width,
+            height: textRect.height
+        )
+        let roundedPath = CGPath(roundedRect: backgroundRect, cornerWidth: 4, cornerHeight: 4, transform: nil)
+        context.addPath(roundedPath)
+        context.drawPath(using: .fillStroke)
+        
+        // Draw text
+        let textPoint = CGPoint(
+            x: bounds.width - textSize.width - padding,
+            y: bounds.height - textSize.height - padding
+        )
+        attributedString.draw(at: textPoint)
     }
 }
 
