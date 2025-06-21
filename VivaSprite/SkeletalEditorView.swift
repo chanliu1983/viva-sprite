@@ -1012,11 +1012,112 @@ class SkeletalEditorView: NSView {
         needsDisplay = true
     }
     
-    func exportAsImage() -> NSImage {
-        let image = NSImage(size: self.bounds.size)
+    func exportAsImage() -> NSImage? {
+        guard let skeleton = skeleton else { return nil }
+        
+        // Step 1: Calculate the bounding box of all pixel art attachments
+        var boundingBox: CGRect? = nil
+        
+        for bone in skeleton.bones {
+            guard let pixelArt = bone.pixelArt else { continue }
+            
+            let startPos = bone.startJoint.worldPosition()
+            let endPos = bone.endJoint.worldPosition()
+            let boneCenter = (startPos + endPos) / 2
+            let boneAngle = bone.angle
+            
+            let pixelArtWidth = CGFloat(pixelArt.width * 2) // Using the same scale as drawing
+            let pixelArtHeight = CGFloat(pixelArt.height * 2)
+            
+            let anchorOffset = simd_float2(
+                (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
+                (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
+            )
+            
+            let rotatedOffset = rotateVector(anchorOffset, by: boneAngle)
+            let pixelArtPos = boneCenter - rotatedOffset
+            
+            let transform = CGAffineTransform(translationX: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y)).rotated(by: CGFloat(boneAngle))
+            
+            let corners = [
+                CGPoint(x: -pixelArtWidth / 2, y: -pixelArtHeight / 2),
+                CGPoint(x: pixelArtWidth / 2, y: -pixelArtHeight / 2),
+                CGPoint(x: pixelArtWidth / 2, y: pixelArtHeight / 2),
+                CGPoint(x: -pixelArtWidth / 2, y: pixelArtHeight / 2)
+            ].map { $0.applying(transform) }
+            
+            for corner in corners {
+                if boundingBox == nil {
+                    boundingBox = CGRect(origin: corner, size: .zero)
+                } else {
+                    boundingBox = boundingBox!.union(CGRect(origin: corner, size: .zero))
+                }
+            }
+        }
+        
+        guard let finalBoundingBox = boundingBox else {
+            // No pixel art to export
+            return nil
+        }
+        
+        // Step 2: Create an NSImage and draw the pixel art
+        let image = NSImage(size: finalBoundingBox.size)
         image.lockFocus()
-        let context = NSGraphicsContext.current!.cgContext
-        layer!.render(in: context)
+        
+        guard let context = NSGraphicsContext.current?.cgContext else {
+            image.unlockFocus()
+            return nil
+        }
+        
+        // Translate the context so the drawing is within the image bounds
+        context.translateBy(x: -finalBoundingBox.origin.x, y: -finalBoundingBox.origin.y)
+        
+        // Draw each pixel art attachment
+        for bone in skeleton.bones {
+            guard let pixelArt = bone.pixelArt else { continue }
+            
+            let startPos = bone.startJoint.worldPosition()
+            let endPos = bone.endJoint.worldPosition()
+            let boneCenter = (startPos + endPos) / 2
+            let boneAngle = bone.angle
+            
+            let pixelArtWidth = CGFloat(pixelArt.width * 2)
+            let pixelArtHeight = CGFloat(pixelArt.height * 2)
+            
+            let anchorOffset = simd_float2(
+                (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
+                (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
+            )
+            
+            let rotatedOffset = rotateVector(anchorOffset, by: boneAngle)
+            let pixelArtPos = boneCenter - rotatedOffset
+            
+            context.saveGState()
+            context.translateBy(x: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y))
+            context.rotate(by: CGFloat(boneAngle))
+            
+            let pixelSize = CGFloat(2)
+            let totalWidth = CGFloat(pixelArt.width) * pixelSize
+            let totalHeight = CGFloat(pixelArt.height) * pixelSize
+            
+            for row in 0..<pixelArt.height {
+                for col in 0..<pixelArt.width {
+                    if let color = pixelArt.pixels[row][col] {
+                        let pixelRect = CGRect(
+                            x: CGFloat(col) * pixelSize - totalWidth / 2,
+                            y: CGFloat(pixelArt.height - 1 - row) * pixelSize - totalHeight / 2,
+                            width: pixelSize,
+                            height: pixelSize
+                        )
+                        context.setFillColor(color.cgColor)
+                        context.fill(pixelRect)
+                    }
+                }
+            }
+            
+            context.restoreGState()
+        }
+        
         image.unlockFocus()
         return image
     }

@@ -416,15 +416,27 @@ class SkeletalDocumentViewController: NSViewController {
         
         if savePanel.runModal() == .OK {
             guard let url = savePanel.url else { return }
-            let image = skeletalEditorView.exportAsImage()
-            if let tiffData = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiffData),
-               let pngData = bitmap.representation(using: .png, properties: [:]) {
-                do {
-                    try pngData.write(to: url)
-                } catch {
-                    print("Error saving image: \(error)")
-                }
+            
+            guard let image = skeletalEditorView.exportAsImage(),
+                  let tiffData = image.tiffRepresentation,
+                  let bitmap = NSBitmapImageRep(data: tiffData),
+                  let pngData = bitmap.representation(using: .png, properties: [:]) else {
+                let alert = NSAlert()
+                alert.messageText = "Error Exporting Image"
+                alert.informativeText = "Could not generate the PNG data for the image."
+                alert.alertStyle = .warning
+                alert.runModal()
+                return
+            }
+            
+            do {
+                try pngData.write(to: url)
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Error Saving Image"
+                alert.informativeText = "Failed to save the image to the selected location.\n\n\(error.localizedDescription)"
+                alert.alertStyle = .critical
+                alert.runModal()
             }
         }
     }
