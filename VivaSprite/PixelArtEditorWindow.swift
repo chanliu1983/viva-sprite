@@ -594,7 +594,30 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
             
             return item
             
-
+        case "exit":
+            // Create exit button
+            let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+            item.label = "Exit"
+            item.paletteLabel = "Exit"
+            item.toolTip = "Exit editor without saving"
+            
+            // Create a custom button
+            let button = NSButton(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
+            button.bezelStyle = .texturedRounded
+            button.isBordered = false
+            button.title = ""
+            
+            if let exitImage = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Exit") {
+                button.image = exitImage
+            }
+            
+            button.target = self
+            button.action = #selector(exitEditor)
+            button.isEnabled = true
+            
+            item.view = button
+            
+            return item
             
         default:
             return nil
@@ -604,6 +627,7 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         return [
             NSToolbarItem.Identifier("save"),
+            NSToolbarItem.Identifier("exit"),
             .flexibleSpace
         ]
     }
@@ -611,14 +635,15 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         return [
             NSToolbarItem.Identifier("save"),
-            .flexibleSpace
+            .flexibleSpace,
+            NSToolbarItem.Identifier("exit")
         ]
     }
     
     // Implement NSToolbarItemValidation protocol to ensure toolbar buttons are always enabled
     func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
-        // Always enable the save button
-        if item.itemIdentifier.rawValue == "save" {
+        // Always enable the save and exit buttons
+        if item.itemIdentifier.rawValue == "save" || item.itemIdentifier.rawValue == "exit" {
             print("Validating toolbar item: \(item.itemIdentifier.rawValue) - returning true")
             return true
         }
@@ -640,6 +665,19 @@ extension PixelArtEditorWindow: NSToolbarDelegate, NSToolbarItemValidation {
         
         updateBone()
         print("Data saved, closing window")
+        
+        // Check if this window is presented as a sheet
+        if let parentWindow = window?.sheetParent {
+            print("Window is presented as sheet, ending sheet")
+            parentWindow.endSheet(window!)
+        } else {
+            print("Window is not a sheet, closing normally")
+            window?.close()
+        }
+    }
+    
+    @objc func exitEditor() {
+        print("Exit button clicked - abandoning changes and closing window")
         
         // Check if this window is presented as a sheet
         if let parentWindow = window?.sheetParent {

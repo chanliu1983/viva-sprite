@@ -98,6 +98,9 @@ class PixelArtCanvasView: NSView {
         // Draw pixels with improved rendering
         drawPixels(context: context, pixelArt: pixelArt)
         
+        // Draw bounding box to indicate canvas drawing range
+        drawBoundingBox(context: context, pixelArt: pixelArt)
+        
         // Draw grid (disabled for better clarity)
         // drawGrid(context: context, pixelArt: pixelArt)
     }
@@ -170,6 +173,25 @@ class PixelArtCanvasView: NSView {
                 context.fill(rect)
             }
         }
+    }
+    
+    private func drawBoundingBox(context: CGContext, pixelArt: PixelArtData) {
+        let scaledPixelSize = pixelSize * zoomFactor
+        let canvasWidth = CGFloat(pixelArt.width) * scaledPixelSize
+        let canvasHeight = CGFloat(pixelArt.height) * scaledPixelSize
+        
+        // Draw a border around the canvas area
+        context.setStrokeColor(NSColor.black.cgColor)
+        context.setLineWidth(2.0)
+        
+        let boundingRect = CGRect(
+            x: 0,
+            y: 0,
+            width: canvasWidth,
+            height: canvasHeight
+        )
+        
+        context.stroke(boundingRect)
     }
     
     private func drawGrid(context: CGContext, pixelArt: PixelArtData) {
