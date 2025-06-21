@@ -214,6 +214,8 @@ class Skeleton {
     var joints: [Joint] = []
     var bones: [Bone] = []
     var pixelArts: [PixelArtData] = []
+    var canvasWidth: Int = 1024
+    var canvasHeight: Int = 1024
     
     init(id: UUID = UUID(), name: String) {
         self.id = id
@@ -248,6 +250,10 @@ class Skeleton {
                 self.addBone(bone)
             }
         }
+        
+        // Load canvas size
+        self.canvasWidth = data.canvasWidth ?? 1024
+        self.canvasHeight = data.canvasHeight ?? 1024
     }
 
     var data: SkeletonData {
@@ -490,6 +496,8 @@ struct SkeletonData: Codable {
     let joints: [JointData]
     let bones: [BoneData]
     let pixelArts: [PixelArtDataCodable]
+    let canvasWidth: Int?
+    let canvasHeight: Int?
     
     init(from skeleton: Skeleton) {
         self.id = skeleton.id.uuidString
@@ -498,6 +506,8 @@ struct SkeletonData: Codable {
         self.joints = skeleton.joints.map { $0.data }
         self.bones = skeleton.bones.map { $0.data }
         self.pixelArts = skeleton.pixelArts.map { $0.codable }
+        self.canvasWidth = skeleton.canvasWidth
+        self.canvasHeight = skeleton.canvasHeight
     }
 }
 

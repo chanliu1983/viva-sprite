@@ -46,9 +46,6 @@ class TabViewController: NSViewController {
     func createNewDocument(type: DocumentType = .skeletal) {
         let storyboard = NSStoryboard(name: "Document", bundle: nil)
         
-        let documentVC: NSViewController
-        let documentName: String
-        
         switch type {
         case .pixelArt:
             guard let pixelArtVC = storyboard.instantiateController(withIdentifier: "DocumentViewController") as? DocumentViewController else {
@@ -56,26 +53,42 @@ class TabViewController: NSViewController {
             }
             pixelArtVC.tabViewController = self
             pixelArtVC.documentName = "Untitled Pixel Art \(nextUntitledNumber)"
-            documentName = pixelArtVC.documentName
-            documentVC = pixelArtVC
+            let documentName = pixelArtVC.documentName
+            let documentVC = pixelArtVC
+            
+            nextUntitledNumber += 1
+            
+            let tabViewItem = NSTabViewItem(viewController: documentVC)
+            tabViewItem.label = documentName
+            
+            tabView.addTabViewItem(tabViewItem)
+            tabView.selectTabViewItem(tabViewItem)
+            
+            documentControllers.append(documentVC)
             
         case .skeletal:
-            let skeletalVC = SkeletalDocumentViewController()
-            skeletalVC.tabViewController = self
-            skeletalVC.documentName = "Untitled Skeleton \(nextUntitledNumber)"
-            documentName = skeletalVC.documentName
-            documentVC = skeletalVC
+            // Show canvas size dialog asynchronously
+            showCanvasSizeDialog { [weak self] width, height in
+                guard let self = self else { return }
+                
+                let skeletalVC = SkeletalDocumentViewController()
+                skeletalVC.tabViewController = self
+                skeletalVC.documentName = "Untitled Skeleton \(self.nextUntitledNumber)"
+                skeletalVC.setCanvasSize(width: width, height: height)
+                let documentName = skeletalVC.documentName
+                let documentVC = skeletalVC
+                
+                self.nextUntitledNumber += 1
+                
+                let tabViewItem = NSTabViewItem(viewController: documentVC)
+                tabViewItem.label = documentName
+                
+                self.tabView.addTabViewItem(tabViewItem)
+                self.tabView.selectTabViewItem(tabViewItem)
+                
+                self.documentControllers.append(documentVC)
+            }
         }
-        
-        nextUntitledNumber += 1
-        
-        let tabViewItem = NSTabViewItem(viewController: documentVC)
-        tabViewItem.label = documentName
-        
-        tabView.addTabViewItem(tabViewItem)
-        tabView.selectTabViewItem(tabViewItem)
-        
-        documentControllers.append(documentVC)
     }
     
     func openDocument(from url: URL) {
@@ -99,6 +112,61 @@ class TabViewController: NSViewController {
         tabView.selectTabViewItem(tabViewItem)
         
         documentControllers.append(documentVC)
+    }
+    
+    private func showCanvasSizeDialog(completion: @escaping (Int, Int) -> Void) {
+        let alert = NSAlert()
+        alert.icon = NSImage()
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        
+        // Create a custom view for better visibility
+        let customView = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        
+        // Width field with label
+        let widthLabel = NSTextField(labelWithString: "Width:")
+        widthLabel.frame = NSRect(x: 10, y: 60, width: 80, height: 20)
+        widthLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        
+        let widthField = NSTextField(frame: NSRect(x: 100, y: 60, width: 180, height: 24))
+        widthField.stringValue = "1024"
+        widthField.font = NSFont.systemFont(ofSize: 14)
+        
+        // Height field with label
+        let heightLabel = NSTextField(labelWithString: "Height:")
+        heightLabel.frame = NSRect(x: 10, y: 20, width: 80, height: 20)
+        heightLabel.font = NSFont.boldSystemFont(ofSize: 14)
+        
+        let heightField = NSTextField(frame: NSRect(x: 100, y: 20, width: 180, height: 24))
+        heightField.stringValue = "1024"
+        heightField.font = NSFont.systemFont(ofSize: 14)
+        
+        // Add all elements to the custom view
+        customView.addSubview(widthLabel)
+        customView.addSubview(widthField)
+        customView.addSubview(heightLabel)
+        customView.addSubview(heightField)
+        
+        alert.accessoryView = customView
+        
+        guard let window = view.window else {
+            // Fallback to default values if no window available
+            completion(1024, 1024)
+            return
+        }
+        
+        alert.beginSheetModal(for: window) { response in
+            // Get references to the width and height fields from the custom view
+            let widthField = alert.accessoryView?.subviews.first(where: { $0 is NSTextField && $0.frame.origin.x == 100 && $0.frame.origin.y == 60 }) as? NSTextField
+            let heightField = alert.accessoryView?.subviews.first(where: { $0 is NSTextField && $0.frame.origin.x == 100 && $0.frame.origin.y == 20 }) as? NSTextField
+            if response == .alertFirstButtonReturn {
+                // Safely unwrap the text field values
+                let width = Int(widthField?.stringValue ?? "1024") ?? 1024
+                let height = Int(heightField?.stringValue ?? "1024") ?? 1024
+                completion(max(1, width), max(1, height))
+            }
+            // Don't call completion if cancelled - this prevents canvas creation
+        }
     }
     
     func closeCurrentDocument() {

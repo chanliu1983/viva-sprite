@@ -27,6 +27,10 @@ class SkeletalDocumentViewController: NSViewController {
         }
     }
     
+    // Canvas size properties for early initialization
+    private var pendingCanvasWidth: Int?
+    private var pendingCanvasHeight: Int?
+    
     weak var tabViewController: TabViewController?
     
     private var selectedJoint: Joint?
@@ -38,8 +42,8 @@ class SkeletalDocumentViewController: NSViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupSkeleton()
         setupUI()
+        setupSkeleton()
         setupProperties()
         
         // Configure skeletal editor after UI is set up
@@ -48,8 +52,25 @@ class SkeletalDocumentViewController: NSViewController {
         
         // Set initial tool to Move mode
         skeletalEditorView.currentTool = .move
+        
+        configureInitialSettings()
+    }
+    
+    func setCanvasSize(width: Int, height: Int) {
+        if skeleton != nil {
+            skeleton.canvasWidth = width
+            skeleton.canvasHeight = height
+            skeletalEditorView?.needsDisplay = true
+        } else {
+            // Store for later application when skeleton is initialized
+            pendingCanvasWidth = width
+            pendingCanvasHeight = height
+        }
+    }
+    
+    private func configureInitialSettings() {
         updateToolSelection(for: .move)
-
+        
         // Set initial mode to Direct
         skeletalEditorView.currentMode = .direct
         updateModeSelection(for: .direct)
@@ -66,6 +87,14 @@ class SkeletalDocumentViewController: NSViewController {
     
     private func setupSkeleton() {
         skeleton = Skeleton(name: documentName)
+        
+        // Apply pending canvas size if it was set before skeleton initialization
+        if let width = pendingCanvasWidth, let height = pendingCanvasHeight {
+            skeleton.canvasWidth = width
+            skeleton.canvasHeight = height
+            pendingCanvasWidth = nil
+            pendingCanvasHeight = nil
+        }
     }
     
     private func createDefaultSkeleton() {

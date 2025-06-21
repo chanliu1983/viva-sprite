@@ -60,4 +60,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             skeletalController.exportAsImage(sender)
         }
     }
+    
+    @IBAction func newSkeletalDocument(_ sender: Any) {
+        if let mainWindow = NSApplication.shared.mainWindow,
+           let tabViewController = mainWindow.contentViewController as? TabViewController {
+            tabViewController.createNewDocument(type: .skeletal)
+        }
+    }
 }

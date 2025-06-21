@@ -132,6 +132,9 @@ class SkeletalEditorView: NSView {
         // Draw grid
         drawGrid(context: context)
         
+        // Draw canvas boundaries
+        drawCanvasBoundaries(context: context)
+        
         // Draw coordinate axes
         drawCoordinateAxes(context: context)
         
@@ -247,6 +250,34 @@ class SkeletalEditorView: NSView {
             height: originLabelSize.height
         )
         originLabel.draw(in: originLabelRect, withAttributes: attributes)
+    }
+    
+    private func drawCanvasBoundaries(context: CGContext) {
+        guard let skeleton = skeleton else { return }
+        
+        // Calculate canvas boundaries with offset
+        let canvasLeft = CGFloat(canvasOffset.x - Float(skeleton.canvasWidth) / 2)
+        let canvasRight = CGFloat(canvasOffset.x + Float(skeleton.canvasWidth) / 2)
+        let canvasBottom = CGFloat(canvasOffset.y - Float(skeleton.canvasHeight) / 2)
+        let canvasTop = CGFloat(canvasOffset.y + Float(skeleton.canvasHeight) / 2)
+        
+        // Set up dotted line style
+        context.setStrokeColor(NSColor.systemGray.cgColor)
+        context.setLineWidth(2.0)
+        context.setLineDash(phase: 0, lengths: [5, 5])
+        
+        // Draw canvas boundary rectangle
+        let canvasRect = CGRect(
+            x: canvasLeft,
+            y: canvasBottom,
+            width: CGFloat(skeleton.canvasWidth),
+            height: CGFloat(skeleton.canvasHeight)
+        )
+        
+        context.stroke(canvasRect)
+        
+        // Reset line dash
+        context.setLineDash(phase: 0, lengths: [])
     }
     
     private func drawBones(context: CGContext, skeleton: Skeleton) {
@@ -1020,58 +1051,14 @@ class SkeletalEditorView: NSView {
     func exportAsImage() -> NSImage? {
         guard let skeleton = skeleton else { return nil }
         
-        // Step 1: Calculate the bounding box of all pixel art attachments
-        var boundingBox: CGRect? = nil
+        // Use canvas size for export
+        let canvasSize = CGSize(width: skeleton.canvasWidth, height: skeleton.canvasHeight)
         
         // Sort bones by order for consistent rendering
         let sortedBones = skeleton.bones.sorted { $0.pixelArtOrder < $1.pixelArtOrder }
         
-        for bone in sortedBones {
-            guard let pixelArt = bone.pixelArt else { continue }
-            
-            let startPos = bone.startJoint.worldPosition()
-            let endPos = bone.endJoint.worldPosition()
-            let boneCenter = (startPos + endPos) / 2
-            let boneAngle = bone.angle
-            let totalRotation = boneAngle + bone.pixelArtRotation
-            
-            // Apply pixelArtScale to the pixel art dimensions for bounding box calculation
-            let pixelArtWidth = CGFloat(pixelArt.width * 2) * CGFloat(bone.pixelArtScale)
-            let pixelArtHeight = CGFloat(pixelArt.height * 2) * CGFloat(bone.pixelArtScale)
-            
-            let anchorOffset = simd_float2(
-                (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
-                (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
-            )
-            
-            let rotatedOffset = rotateVector(anchorOffset, by: totalRotation)
-            let pixelArtPos = boneCenter - rotatedOffset
-            
-            let transform = CGAffineTransform(translationX: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y)).rotated(by: CGFloat(totalRotation))
-            
-            let corners = [
-                CGPoint(x: -pixelArtWidth / 2, y: -pixelArtHeight / 2),
-                CGPoint(x: pixelArtWidth / 2, y: -pixelArtHeight / 2),
-                CGPoint(x: pixelArtWidth / 2, y: pixelArtHeight / 2),
-                CGPoint(x: -pixelArtWidth / 2, y: pixelArtHeight / 2)
-            ].map { $0.applying(transform) }
-            
-            for corner in corners {
-                if boundingBox == nil {
-                    boundingBox = CGRect(origin: corner, size: .zero)
-                } else {
-                    boundingBox = boundingBox!.union(CGRect(origin: corner, size: .zero))
-                }
-            }
-        }
-        
-        guard let finalBoundingBox = boundingBox else {
-            // No pixel art to export
-            return nil
-        }
-        
-        // Step 2: Create an NSImage and draw the pixel art
-        let image = NSImage(size: finalBoundingBox.size)
+        // Create an NSImage with canvas size
+        let image = NSImage(size: canvasSize)
         image.lockFocus()
         
         guard let context = NSGraphicsContext.current?.cgContext else {
@@ -1079,8 +1066,11 @@ class SkeletalEditorView: NSView {
             return nil
         }
         
-        // Translate the context so the drawing is within the image bounds
-        context.translateBy(x: -finalBoundingBox.origin.x, y: -finalBoundingBox.origin.y)
+        // Clear background to transparent
+        context.clear(CGRect(origin: .zero, size: canvasSize))
+        
+        // Set coordinate system origin to center of canvas
+        context.translateBy(x: canvasSize.width / 2, y: canvasSize.height / 2)
         
         // Draw each pixel art attachment in order
         for bone in sortedBones {
