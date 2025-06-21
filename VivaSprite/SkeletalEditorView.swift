@@ -50,7 +50,7 @@ class SkeletalEditorView: NSView {
     }
     
     var currentTool: SkeletalTool = .select
-    private var canvasOffset: simd_float2 = simd_float2(0, 0)
+    var canvasOffset: simd_float2 = simd_float2(0, 0)
     private var isPanning = false
     private var lastPanPoint: simd_float2 = simd_float2(0, 0)
     
@@ -444,26 +444,27 @@ class SkeletalEditorView: NSView {
             let endPos = bone.endJoint.worldPosition()
             let boneCenter = (startPos + endPos) / 2
             let boneAngle = bone.angle
+            let totalRotation = boneAngle + bone.pixelArtRotation
             
             // Calculate pixel art position based on anchor point
-            let pixelArtWidth = CGFloat(pixelArt.width * 2) // Scale up for visibility
-            let pixelArtHeight = CGFloat(pixelArt.height * 2)
+            let pixelArtWidth = CGFloat(pixelArt.width * 2) * CGFloat(bone.pixelArtScale)
+            let pixelArtHeight = CGFloat(pixelArt.height * 2) * CGFloat(bone.pixelArtScale)
             
             let anchorOffset = simd_float2(
                 (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
                 (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
             )
             
-            let rotatedOffset = rotateVector(anchorOffset, by: boneAngle)
+            let rotatedOffset = rotateVector(anchorOffset, by: totalRotation)
             let pixelArtPos = boneCenter - rotatedOffset
             
             // Draw actual pixel art
             context.saveGState()
             context.translateBy(x: CGFloat(pixelArtPos.x + canvasOffset.x), y: CGFloat(pixelArtPos.y + canvasOffset.y))
-            context.rotate(by: CGFloat(boneAngle))
+            context.rotate(by: CGFloat(totalRotation))
             
             // Calculate pixel size for rendering
-            let pixelSize = CGFloat(2) // 2x2 pixels for visibility
+            let pixelSize = CGFloat(2) * CGFloat(bone.pixelArtScale) // 2x2 pixels for visibility, scaled
             let totalWidth = CGFloat(pixelArt.width) * pixelSize
             let totalHeight = CGFloat(pixelArt.height) * pixelSize
             
@@ -492,6 +493,8 @@ class SkeletalEditorView: NSView {
             context.restoreGState()
         }
     }
+    
+
     
     // MARK: - Mouse Handling
     
@@ -1025,19 +1028,21 @@ class SkeletalEditorView: NSView {
             let endPos = bone.endJoint.worldPosition()
             let boneCenter = (startPos + endPos) / 2
             let boneAngle = bone.angle
+            let totalRotation = boneAngle + bone.pixelArtRotation
             
-            let pixelArtWidth = CGFloat(pixelArt.width * 2) // Using the same scale as drawing
-            let pixelArtHeight = CGFloat(pixelArt.height * 2)
+            // Apply pixelArtScale to the pixel art dimensions for bounding box calculation
+            let pixelArtWidth = CGFloat(pixelArt.width * 2) * CGFloat(bone.pixelArtScale)
+            let pixelArtHeight = CGFloat(pixelArt.height * 2) * CGFloat(bone.pixelArtScale)
             
             let anchorOffset = simd_float2(
                 (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
                 (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
             )
             
-            let rotatedOffset = rotateVector(anchorOffset, by: boneAngle)
+            let rotatedOffset = rotateVector(anchorOffset, by: totalRotation)
             let pixelArtPos = boneCenter - rotatedOffset
             
-            let transform = CGAffineTransform(translationX: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y)).rotated(by: CGFloat(boneAngle))
+            let transform = CGAffineTransform(translationX: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y)).rotated(by: CGFloat(totalRotation))
             
             let corners = [
                 CGPoint(x: -pixelArtWidth / 2, y: -pixelArtHeight / 2),
@@ -1080,23 +1085,26 @@ class SkeletalEditorView: NSView {
             let endPos = bone.endJoint.worldPosition()
             let boneCenter = (startPos + endPos) / 2
             let boneAngle = bone.angle
+            let totalRotation = boneAngle + bone.pixelArtRotation
             
-            let pixelArtWidth = CGFloat(pixelArt.width * 2)
-            let pixelArtHeight = CGFloat(pixelArt.height * 2)
+            // Apply pixelArtScale to the pixel art dimensions
+            let pixelArtWidth = CGFloat(pixelArt.width * 2) * CGFloat(bone.pixelArtScale)
+            let pixelArtHeight = CGFloat(pixelArt.height * 2) * CGFloat(bone.pixelArtScale)
             
             let anchorOffset = simd_float2(
                 (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
                 (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
             )
             
-            let rotatedOffset = rotateVector(anchorOffset, by: boneAngle)
+            let rotatedOffset = rotateVector(anchorOffset, by: totalRotation)
             let pixelArtPos = boneCenter - rotatedOffset
             
             context.saveGState()
             context.translateBy(x: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y))
-            context.rotate(by: CGFloat(boneAngle))
+            context.rotate(by: CGFloat(totalRotation))
             
-            let pixelSize = CGFloat(2)
+            // Apply pixelArtScale to the pixel size
+            let pixelSize = CGFloat(2) * CGFloat(bone.pixelArtScale)
             let totalWidth = CGFloat(pixelArt.width) * pixelSize
             let totalHeight = CGFloat(pixelArt.height) * pixelSize
             

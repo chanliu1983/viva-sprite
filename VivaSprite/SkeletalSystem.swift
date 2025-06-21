@@ -26,10 +26,24 @@ class Joint: Hashable {
     var maxAngle: Float = Float.pi
     var hasAngleConstraints: Bool = false
     
-    init(name: String, position: simd_float2) {
-        self.id = UUID()
+        init(id: UUID = UUID(), name: String, position: simd_float2) {
+        self.id = id
         self.name = name
         self.position = position
+    }
+    
+    convenience init?(from data: JointData) {
+        guard let id = UUID(uuidString: data.id) else { return nil }
+        self.init(id: id, name: data.name, position: simd_float2(x: data.position.x, y: data.position.y))
+        self.rotation = data.rotation
+        self.isFixed = data.isFixed
+        self.minAngle = data.minAngle
+        self.maxAngle = data.maxAngle
+        self.hasAngleConstraints = data.hasAngleConstraints
+    }
+
+    var data: JointData {
+        return JointData(from: self)
     }
     
     /// Get world position (simplified - just return local position)
@@ -93,26 +107,48 @@ class Bone: Hashable {
     let startJoint: Joint
     let endJoint: Joint
     var pixelArt: PixelArtData?
+    var pixelArtScale: Float = 1.0
+    var pixelArtRotation: Float = 0.0 // In radians
     var thickness: Float = 10.0
     var color: NSColor = .brown
     var originalLength: Float // Store the original bone length
     
-    init(name: String, start: Joint, end: Joint) {
-        self.id = UUID()
-        self.name = name
-        self.startJoint = start
-        self.endJoint = end
-        // Calculate and store the original length when bone is created
-        let diff = end.position - start.position
-        self.originalLength = simd_length(diff)
-    }
-    
-    init(name: String, start: Joint, end: Joint, originalLength: Float) {
-        self.id = UUID()
+    init(id: UUID = UUID(), name: String, start: Joint, end: Joint, originalLength: Float) {
+        self.id = id
         self.name = name
         self.startJoint = start
         self.endJoint = end
         self.originalLength = originalLength
+    }
+    
+    convenience init(id: UUID = UUID(), name: String, start: Joint, end: Joint) {
+        let diff = end.position - start.position
+        let length = simd_length(diff)
+        self.init(id: id, name: name, start: start, end: end, originalLength: length)
+    }
+
+    convenience init?(from data: BoneData, jointMap: [String: Joint], pixelArtMap: [String: PixelArtData]) {
+        guard let id = UUID(uuidString: data.id),
+              let startJoint = jointMap[data.startJointId],
+              let endJoint = jointMap[data.endJointId] else {
+            return nil
+        }
+        let length = data.originalLength ?? simd_distance(startJoint.position, endJoint.position)
+        self.init(id: id, name: data.name, start: startJoint, end: endJoint, originalLength: length)
+        self.thickness = data.thickness
+        self.color = data.color.toNSColor()
+        if let pixelArtId = data.pixelArtId {
+            guard let pixelArt = pixelArtMap[pixelArtId] else {
+                fatalError("Could not find pixel art with ID \(pixelArtId)")
+            }
+            self.pixelArt = pixelArt
+        }
+        self.pixelArtScale = data.pixelArtScale ?? 1.0
+        self.pixelArtRotation = data.pixelArtRotation ?? 0.0
+    }
+
+    var data: BoneData {
+        return BoneData(from: self)
     }
     
     var length: Float {
@@ -146,7 +182,7 @@ class Bone: Hashable {
 }
 
 /// Pixel art data that can be bound to bones
-struct PixelArtData {
+struct PixelArtData: Identifiable {
     let id: UUID
     var name: String
     var pixels: [[NSColor?]]
@@ -154,13 +190,17 @@ struct PixelArtData {
     var height: Int
     var anchorPoint: simd_float2 // Relative anchor point (0-1)
     
-    init(name: String, width: Int, height: Int) {
-        self.id = UUID()
+    init(id: UUID = UUID(), name: String, width: Int, height: Int) {
+        self.id = id
         self.name = name
         self.width = width
         self.height = height
         self.pixels = Array(repeating: Array(repeating: nil, count: width), count: height)
         self.anchorPoint = simd_float2(0.5, 0.5) // Center by default
+    }
+
+    var codable: PixelArtDataCodable {
+        return PixelArtDataCodable(from: self)
     }
 }
 
@@ -173,9 +213,43 @@ class Skeleton {
     var bones: [Bone] = []
     var pixelArts: [PixelArtData] = []
     
-    init(name: String) {
-        self.id = UUID()
+    init(id: UUID = UUID(), name: String) {
+        self.id = id
         self.name = name
+    }
+    
+    convenience init?(from data: SkeletonData) {
+        guard let id = UUID(uuidString: data.id) else { return nil }
+        self.init(id: id, name: data.name)
+
+        // Create pixel arts first
+        self.pixelArts = data.pixelArts.compactMap { $0.toPixelArtData() }
+        let pixelArtMap = Dictionary(uniqueKeysWithValues: self.pixelArts.map { ($0.id.uuidString, $0) })
+
+        // Create joints
+        var jointMap: [String: Joint] = [:]
+        for jointData in data.joints {
+            if let joint = Joint(from: jointData) {
+                self.addJoint(joint)
+                jointMap[joint.id.uuidString] = joint
+            }
+        }
+        
+        // Set root joint
+        if let rootJointId = data.rootJointId {
+            self.rootJoint = jointMap[rootJointId]
+        }
+
+        // Create bones
+        for boneData in data.bones {
+            if let bone = Bone(from: boneData, jointMap: jointMap, pixelArtMap: pixelArtMap) {
+                self.addBone(bone)
+            }
+        }
+    }
+
+    var data: SkeletonData {
+        return SkeletonData(from: self)
     }
     
     func addJoint(_ joint: Joint) {
@@ -408,6 +482,7 @@ class IKSolver {
 // MARK: - Serializable Data Structures for Save/Load
 
 struct SkeletonData: Codable {
+    let id: String
     let name: String
     let rootJointId: String?
     let joints: [JointData]
@@ -415,11 +490,12 @@ struct SkeletonData: Codable {
     let pixelArts: [PixelArtDataCodable]
     
     init(from skeleton: Skeleton) {
+        self.id = skeleton.id.uuidString
         self.name = skeleton.name
         self.rootJointId = skeleton.rootJoint?.id.uuidString
-        self.joints = skeleton.joints.map { JointData(from: $0) }
-        self.bones = skeleton.bones.map { BoneData(from: $0) }
-        self.pixelArts = skeleton.pixelArts.map { PixelArtDataCodable(from: $0) }
+        self.joints = skeleton.joints.map { $0.data }
+        self.bones = skeleton.bones.map { $0.data }
+        self.pixelArts = skeleton.pixelArts.map { $0.codable }
     }
 }
 
@@ -454,6 +530,8 @@ struct BoneData: Codable {
     let color: ColorData
     let originalLength: Float?
     let pixelArtId: String?
+    let pixelArtScale: Float?
+    let pixelArtRotation: Float?
     
     init(from bone: Bone) {
         self.id = bone.id.uuidString
@@ -464,6 +542,8 @@ struct BoneData: Codable {
         self.color = ColorData(from: bone.color)
         self.originalLength = bone.originalLength
         self.pixelArtId = bone.pixelArt?.id.uuidString
+        self.pixelArtScale = bone.pixelArtScale
+        self.pixelArtRotation = bone.pixelArtRotation
     }
 }
 
@@ -508,8 +588,9 @@ struct PixelArtDataCodable: Codable {
         self.imageData = PixelArtDataCodable.encodePixelsToBase64(pixelArt.pixels)
     }
     
-    func toPixelArtData() -> PixelArtData {
-        var pixelArt = PixelArtData(name: name, width: width, height: height)
+    func toPixelArtData() -> PixelArtData? {
+        guard let id = UUID(uuidString: id) else { return nil }
+        var pixelArt = PixelArtData(id: id, name: name, width: width, height: height)
         pixelArt.anchorPoint = simd_float2(anchorPoint.x, anchorPoint.y)
         pixelArt.pixels = PixelArtDataCodable.decodePixelsFromBase64(imageData, width: width, height: height)
         return pixelArt

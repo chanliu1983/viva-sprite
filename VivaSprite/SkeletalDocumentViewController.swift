@@ -394,7 +394,18 @@ class SkeletalDocumentViewController: NSViewController {
         
         if savePanel.runModal() == .OK {
             guard let url = savePanel.url else { return }
-            exportSkeletonToJSON(url: url)
+            
+            do {
+                let data = try JSONEncoder().encode(skeleton.data)
+                try data.write(to: url)
+                isModified = false
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Error Exporting Skeleton"
+                alert.informativeText = "Could not save the skeleton to the specified file.\n\n\(error.localizedDescription)"
+                alert.alertStyle = .critical
+                alert.runModal()
+            }
         }
     }
     
@@ -405,7 +416,29 @@ class SkeletalDocumentViewController: NSViewController {
         
         if openPanel.runModal() == .OK {
             guard let url = openPanel.urls.first else { return }
-            importSkeletonFromJSON(url: url)
+            
+            do {
+                let data = try Data(contentsOf: url)
+                let skeletonData = try JSONDecoder().decode(SkeletonData.self, from: data)
+                
+                if let newSkeleton = Skeleton(from: skeletonData) {
+                    self.skeleton = newSkeleton
+                    self.skeletalEditorView.skeleton = newSkeleton
+                    self.documentName = newSkeleton.name
+                    self.isModified = false
+                    updatePropertiesPanel()
+                    skeletalEditorView.needsDisplay = true
+                } else {
+                    throw NSError(domain: "VivaSpriteError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to reconstruct skeleton from data."])
+                }
+                
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Error Importing Skeleton"
+                alert.informativeText = "Could not load the skeleton from the specified file.\n\n\(error.localizedDescription)"
+                alert.alertStyle = .critical
+                alert.runModal()
+            }
         }
     }
     
@@ -417,8 +450,23 @@ class SkeletalDocumentViewController: NSViewController {
         if savePanel.runModal() == .OK {
             guard let url = savePanel.url else { return }
             
-            guard let image = skeletalEditorView.exportAsImage(),
-                  let tiffData = image.tiffRepresentation,
+            // Create an offscreen view with the same content as the skeletal editor
+            let offscreenView = SkeletalEditorView(frame: skeletalEditorView.bounds)
+            offscreenView.skeleton = self.skeleton
+            offscreenView.canvasOffset = self.skeletalEditorView.canvasOffset
+            
+            // Generate the image from the offscreen view
+            guard let image = offscreenView.exportAsImage() else {
+                let alert = NSAlert()
+                alert.messageText = "Error Exporting Image"
+                alert.informativeText = "Could not generate the image."
+                alert.alertStyle = .warning
+                alert.runModal()
+                return
+            }
+            
+            // Convert to PNG data
+            guard let tiffData = image.tiffRepresentation,
                   let bitmap = NSBitmapImageRep(data: tiffData),
                   let pngData = bitmap.representation(using: .png, properties: [:]) else {
                 let alert = NSAlert()
@@ -429,6 +477,7 @@ class SkeletalDocumentViewController: NSViewController {
                 return
             }
             
+            // Save the PNG data to the selected URL
             do {
                 try pngData.write(to: url)
             } catch {
@@ -458,6 +507,20 @@ class SkeletalDocumentViewController: NSViewController {
             setupBoneProperties(bone)
         }
         // When nothing is selected, leave the properties panel empty
+    }
+    
+    @objc func bonePixelArtScaleChanged(_ sender: NSSlider) {
+        guard let bone = selectedBone else { return }
+        bone.pixelArtScale = sender.floatValue
+        skeletalEditorView.needsDisplay = true
+        isModified = true
+    }
+
+    @objc func bonePixelArtRotationChanged(_ sender: NSSlider) {
+        guard let bone = selectedBone else { return }
+        bone.pixelArtRotation = degreesToRadians(sender.floatValue)
+        skeletalEditorView.needsDisplay = true
+        isModified = true
     }
     
     private func setupJointProperties(_ joint: Joint) {
@@ -567,6 +630,30 @@ class SkeletalDocumentViewController: NSViewController {
             return colorWell
         }())
         propertiesStackView.addArrangedSubview(colorContainer)
+
+        // Pixel Art Scale
+        let scaleContainer = createPropertyRow(label: "Pixel Art Scale:", control: {
+            let slider = NSSlider()
+            slider.minValue = 0.1
+            slider.maxValue = 5.0
+            slider.floatValue = bone.pixelArtScale
+            slider.target = self
+            slider.action = #selector(bonePixelArtScaleChanged(_:))
+            return slider
+        }())
+        propertiesStackView.addArrangedSubview(scaleContainer)
+
+        // Pixel Art Rotation
+        let rotationContainer = createPropertyRow(label: "Pixel Art Rotation:", control: {
+            let slider = NSSlider()
+            slider.minValue = -180
+            slider.maxValue = 180
+            slider.floatValue = radiansToDegrees(bone.pixelArtRotation)
+            slider.target = self
+            slider.action = #selector(bonePixelArtRotationChanged(_:))
+            return slider
+        }())
+        propertiesStackView.addArrangedSubview(rotationContainer)
         
         // Pixel Art
         let pixelArtContainer = createPropertyRow(label: "Pixel Art:", control: {
@@ -701,90 +788,7 @@ class SkeletalDocumentViewController: NSViewController {
     
     // MARK: - Import/Export
     
-    private func exportSkeletonToJSON(url: URL) {
-        do {
-            let skeletonData = SkeletonData(from: skeleton)
-            let jsonData = try JSONEncoder().encode(skeletonData)
-            try jsonData.write(to: url)
-            
-            // Success - no alert dialog
-        } catch {
-            // Export failed - no alert dialog
-            print("Export failed: \(error.localizedDescription)")
-        }
-    }
-    
-    private func importSkeletonFromJSON(url: URL) {
-        do {
-            let jsonData = try Data(contentsOf: url)
-            let skeletonData = try JSONDecoder().decode(SkeletonData.self, from: jsonData)
-            
-            // Create new skeleton from imported data
-            let newSkeleton = Skeleton(name: skeletonData.name)
-            
-            // Import joints
-            var jointMap: [String: Joint] = [:]
-            for jointData in skeletonData.joints {
-                let joint = Joint(name: jointData.name, position: simd_float2(jointData.position.x, jointData.position.y))
-                joint.rotation = jointData.rotation
-                joint.isFixed = jointData.isFixed
-                joint.minAngle = jointData.minAngle
-                joint.maxAngle = jointData.maxAngle
-                joint.hasAngleConstraints = jointData.hasAngleConstraints
-                newSkeleton.addJoint(joint)
-                jointMap[jointData.id] = joint
-            }
-            
-            // Import pixel arts
-            var pixelArtMap: [String: PixelArtData] = [:]
-            for pixelArtData in skeletonData.pixelArts {
-                let pixelArt = pixelArtData.toPixelArtData()
-                pixelArtMap[pixelArtData.id] = pixelArt
-                newSkeleton.pixelArts.append(pixelArt)
-            }
-            
-            // Import bones
-            for boneData in skeletonData.bones {
-                guard let startJoint = jointMap[boneData.startJointId],
-                      let endJoint = jointMap[boneData.endJointId] else { continue }
-                
-                let originalLength = boneData.originalLength ?? {
-                    let diff = endJoint.position - startJoint.position
-                    return simd_length(diff)
-                }()
-                let bone = Bone(name: boneData.name, start: startJoint, end: endJoint, originalLength: originalLength)
-                bone.thickness = boneData.thickness
-                bone.color = NSColor(red: CGFloat(boneData.color.r), 
-                                   green: CGFloat(boneData.color.g), 
-                                   blue: CGFloat(boneData.color.b), 
-                                   alpha: CGFloat(boneData.color.a))
-                
-                // Assign pixel art to bone if it has one
-                if let pixelArtId = boneData.pixelArtId,
-                   let pixelArt = pixelArtMap[pixelArtId] {
-                    bone.pixelArt = pixelArt
-                }
-                
-                newSkeleton.addBone(bone)
-            }
-            
-            // Set root joint
-            if let rootId = skeletonData.rootJointId {
-                newSkeleton.rootJoint = jointMap[rootId]
-            }
-            
-            // Replace current skeleton
-            skeleton = newSkeleton
-            skeletalEditorView.skeleton = skeleton
-            updatePropertiesPanel()
-            skeletalEditorView.needsDisplay = true
-            
-            // Success - no alert dialog
-        } catch {
-            // Import failed - no alert dialog
-            print("Import failed: \(error.localizedDescription)")
-        }
-    }
+
 }
 
 // MARK: - SkeletalEditorDelegate
