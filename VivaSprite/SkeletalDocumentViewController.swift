@@ -677,7 +677,7 @@ class SkeletalDocumentViewController: NSViewController {
         let scaleContainer = createPropertyRow(label: "Pixel Art Scale:", control: {
             let slider = NSSlider()
             slider.minValue = 0.1
-            slider.maxValue = 5.0
+            slider.maxValue = 10.0
             slider.floatValue = bone.pixelArtScale
             slider.target = self
             slider.action = #selector(bonePixelArtScaleChanged(_:))
