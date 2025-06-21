@@ -19,7 +19,14 @@ class SkeletalDocumentViewController: NSViewController {
     
     // MARK: - Properties
     
-    var skeleton: Skeleton!
+    var skeleton: Skeleton! {
+        didSet {
+            if isViewLoaded {
+                skeletalEditorView.skeleton = skeleton
+                skeletalEditorView.needsDisplay = true
+            }
+        }
+    }
     var documentName: String = "Untitled Skeleton"
     var isModified: Bool = false {
         didSet {
@@ -43,16 +50,17 @@ class SkeletalDocumentViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupSkeleton()
+        if skeleton == nil {
+            setupSkeleton()
+        }
         setupProperties()
-        
         // Configure skeletal editor after UI is set up
-        skeletalEditorView.skeleton = skeleton
+        if skeletalEditorView.skeleton == nil, let skeleton = skeleton {
+            skeletalEditorView.skeleton = skeleton
+        }
         skeletalEditorView.delegate = self
-        
         // Set initial tool to Move mode
         skeletalEditorView.currentTool = .move
-        
         configureInitialSettings()
     }
     

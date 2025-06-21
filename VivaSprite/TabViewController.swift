@@ -278,39 +278,77 @@ extension TabViewController {
         
         let closeTabItem = NSMenuItem(title: "Close Tab", action: #selector(closeTabFromContextMenu(_:)), keyEquivalent: "")
         closeTabItem.target = self
+        
+        let duplicateTabItem = NSMenuItem(title: "Duplicate", action: #selector(duplicateTabFromContextMenu(_:)), keyEquivalent: "")
+        duplicateTabItem.target = self
+        
+        menu.addItem(duplicateTabItem)
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(closeTabItem)
         
         return menu
     }
     
     @objc private func closeTabFromContextMenu(_ sender: NSMenuItem) {
-        // Get the tab view item that was right-clicked
-        if let event = NSApp.currentEvent,
-           let tabViewItem = getTabViewItemAt(event.locationInWindow) {
-            // Get the view controller associated with this tab
-            if let documentVC = tabViewItem.viewController {
+        guard let event = NSApp.currentEvent, let tabViewItem = getTabViewItemAt(event.locationInWindow) else {
+            // If we can't find the tab, close the selected one as a fallback
+            if let selectedItem = tabView.selectedTabViewItem, let documentVC = selectedItem.viewController {
                 closeDocument(documentVC)
             }
+            return
+        }
+        
+        if let documentVC = tabViewItem.viewController {
+            closeDocument(documentVC)
         }
     }
     
-    private func getTabViewItemAt(_ locationInWindow: NSPoint) -> NSTabViewItem? {
-        // Convert window location to view coordinates
-        let point = tabView.convert(locationInWindow, from: nil)
-        
-        // Check if the point is within any tab's frame
-        for index in 0..<tabView.numberOfTabViewItems {
-            let tabViewItem = tabView.tabViewItem(at: index)
-            
-            // Get the tab's frame (this is an approximation since NSTabView doesn't provide direct access to tab frames)
-            // We're assuming tabs are at the top and have a standard height
-            let tabRect = NSRect(x: 0, y: tabView.frame.height - 22, width: tabView.frame.width, height: 22)
-            
-            if tabRect.contains(point) {
-                return tabViewItem
+    @objc private func duplicateTabFromContextMenu(_ sender: NSMenuItem) {
+        guard let event = NSApp.currentEvent, let sourceItem = getTabViewItemAt(event.locationInWindow) else {
+            // Fallback to selected tab if no specific tab is found
+            guard let selectedItem = tabView.selectedTabViewItem,
+                  let sourceVC = selectedItem.viewController as? SkeletalDocumentViewController,
+                  let skeleton = sourceVC.skeleton else {
+                return
             }
+            duplicateSkeletalDocument(sourceVC: sourceVC, skeleton: skeleton)
+            return
         }
         
-        return tabView.selectedTabViewItem
+        guard let sourceVC = sourceItem.viewController as? SkeletalDocumentViewController,
+              let skeleton = sourceVC.skeleton else {
+            // Can't duplicate if it's not a skeletal document or has no skeleton
+            return
+        }
+        
+        duplicateSkeletalDocument(sourceVC: sourceVC, skeleton: skeleton)
+    }
+    
+    private func duplicateSkeletalDocument(sourceVC: SkeletalDocumentViewController, skeleton: Skeleton) {
+        let newVC = SkeletalDocumentViewController()
+        newVC.tabViewController = self
+        newVC.documentName = "\(sourceVC.documentName) copy"
+        newVC.setCanvasSize(width: skeleton.canvasWidth, height: skeleton.canvasHeight)
+        
+        let copiedSkeleton = skeleton.copy()
+        newVC.skeleton = copiedSkeleton
+        
+        // Ensure the skeletal editor view is also updated with the copied skeleton
+        if newVC.skeletalEditorView != nil {
+            newVC.skeletalEditorView.skeleton = copiedSkeleton
+            newVC.skeletalEditorView.needsDisplay = true
+        }
+
+        let newTabViewItem = NSTabViewItem(viewController: newVC)
+        newTabViewItem.label = newVC.documentName
+
+        tabView.addTabViewItem(newTabViewItem)
+        tabView.selectTabViewItem(newTabViewItem)
+        documentControllers.append(newVC)
+    }
+    
+    private func getTabViewItemAt(_ locationInWindow: NSPoint) -> NSTabViewItem? {
+        let pointInTabView = tabView.convert(locationInWindow, from: nil)
+        return tabView.tabViewItem(at: pointInTabView)
     }
 }

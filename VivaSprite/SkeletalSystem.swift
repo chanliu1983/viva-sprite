@@ -98,6 +98,16 @@ class Joint: Hashable {
     static func == (lhs: Joint, rhs: Joint) -> Bool {
         return lhs.id == rhs.id
     }
+    
+    func copy() -> Joint {
+        let newJoint = Joint(name: self.name, position: self.position)
+        newJoint.isFixed = self.isFixed
+        newJoint.rotation = self.rotation
+        newJoint.minAngle = self.minAngle
+        newJoint.maxAngle = self.maxAngle
+        newJoint.hasAngleConstraints = self.hasAngleConstraints
+        return newJoint
+    }
 }
 
 /// Represents a bone connecting two joints
@@ -181,6 +191,22 @@ class Bone: Hashable {
     static func == (lhs: Bone, rhs: Bone) -> Bool {
         return lhs.id == rhs.id
     }
+    
+    func copy(with joints: [Joint]) -> Bone? {
+        guard let startJoint = joints.first(where: { $0.name == self.startJoint.name }),
+              let endJoint = joints.first(where: { $0.name == self.endJoint.name }) else {
+            return nil
+        }
+        
+        let newBone = Bone(name: self.name, start: startJoint, end: endJoint)
+        newBone.pixelArt = self.pixelArt?.copy()
+        newBone.pixelArtScale = self.pixelArtScale
+        newBone.pixelArtRotation = self.pixelArtRotation
+        newBone.pixelArtOrder = self.pixelArtOrder
+        newBone.thickness = self.thickness
+        newBone.color = self.color
+        return newBone
+    }
 }
 
 /// Pixel art data that can be bound to bones
@@ -203,6 +229,13 @@ struct PixelArtData: Identifiable {
 
     var codable: PixelArtDataCodable {
         return PixelArtDataCodable(from: self)
+    }
+
+    func copy() -> PixelArtData {
+        var newPixelArt = PixelArtData(name: self.name, width: self.width, height: self.height)
+        newPixelArt.pixels = self.pixels
+        newPixelArt.anchorPoint = self.anchorPoint
+        return newPixelArt
     }
 }
 
@@ -353,6 +386,29 @@ class Skeleton {
             return Int(numberString)
         }
         return nil
+    }
+    
+    func copy() -> Skeleton {
+        let newSkeleton = Skeleton(name: "\(self.name) Copy")
+        
+        // Copy joints
+        let newJoints = self.joints.map { $0.copy() }
+        newSkeleton.joints = newJoints
+        
+        // Copy bones
+        let newBones = self.bones.compactMap { $0.copy(with: newJoints) }
+        newSkeleton.bones = newBones
+        
+        // Copy pixel arts
+        let newPixelArts = self.pixelArts.map { $0.copy() }
+        newSkeleton.pixelArts = newPixelArts
+        
+        // Set root joint
+        if let rootJoint = self.rootJoint {
+            newSkeleton.rootJoint = newJoints.first { $0.name == rootJoint.name }
+        }
+        
+        return newSkeleton
     }
 }
 
