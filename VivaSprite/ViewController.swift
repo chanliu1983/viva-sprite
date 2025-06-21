@@ -44,8 +44,10 @@ class ViewController: NSViewController {
         tabViewController?.getCurrentDocumentViewController()?.clearCanvas(sender)
     }
     
-    @IBAction func newDocument(_ sender: Any) {
-        tabViewController?.createNewDocument()
+
+    
+    @IBAction func newSkeletalDocument(_ sender: Any) {
+        tabViewController?.createNewDocument(type: .skeletal)
     }
     
     @IBAction func openImage(_ sender: Any) {

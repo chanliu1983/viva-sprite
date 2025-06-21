@@ -25,4 +25,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return true
     }
+    
+    @IBAction func exportSkeleton(_ sender: Any) {
+        if let mainWindow = NSApplication.shared.mainWindow,
+           let tabViewController = mainWindow.contentViewController as? TabViewController,
+           let selectedItem = tabViewController.tabView.selectedTabViewItem,
+           let skeletalController = selectedItem.viewController as? SkeletalDocumentViewController {
+            skeletalController.exportSkeleton(sender)
+        }
+    }
+    
+    @IBAction func importSkeleton(_ sender: Any) {
+        if let mainWindow = NSApplication.shared.mainWindow,
+           let tabViewController = mainWindow.contentViewController as? TabViewController,
+           let selectedItem = tabViewController.tabView.selectedTabViewItem,
+           let skeletalController = selectedItem.viewController as? SkeletalDocumentViewController {
+            skeletalController.importSkeleton(sender)
+        }
+    }
 }
