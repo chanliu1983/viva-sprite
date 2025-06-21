@@ -619,7 +619,6 @@ class SkeletalEditorView: NSView {
     override func mouseDragged(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let worldPoint = simd_float2(Float(point.x), Float(point.y))
-        
         // Handle canvas panning with move tool
         if isPanning && currentTool == .move {
             let delta = worldPoint - lastPanPoint
@@ -628,19 +627,14 @@ class SkeletalEditorView: NSView {
             needsDisplay = true
             return
         }
-        
         guard isDragging, let joint = selectedJoint else { return }
-        
         if isIKMode {
-            // In IK mode, use recursive path-based IK solving
-            // Only proceed if the joint is not fixed
+            // In IK mode, use global iterative constraint solver
             if !joint.isFixed {
                 let targetPosition = (worldPoint - canvasOffset) + dragOffset
-                solveIKWithRecursivePaths(targetJoint: joint, targetPosition: targetPosition)
-                
+                solveIKGlobalConstraints(movedJoint: joint, targetPosition: targetPosition)
                 delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
             }
-            // If joint is fixed, do nothing (maintain rigidity)
         } else {
             // Direct manipulation only in non-IK mode
             if !joint.isFixed {
@@ -648,7 +642,6 @@ class SkeletalEditorView: NSView {
                 delegate?.skeletalEditor(self, didModifySkeleton: skeleton!)
             }
         }
-        
         needsDisplay = true
     }
     
@@ -869,196 +862,64 @@ class SkeletalEditorView: NSView {
 
     }
     
-    /// Solve IK with recursive path collection and resolution
-    private func solveIKWithRecursivePaths(targetJoint: Joint, targetPosition: simd_float2) {
-        guard let skeleton = skeleton else { return }
-        
-        // Step 1: Use bone-based exploration to collect all bone paths from the target joint
-        var allBonePaths: [[Bone]] = []
-        exploreBones(from: targetJoint, 
-                    currentBonePath: [], 
-                    visitedBones: Set<Bone>(), 
-                    allBonePaths: &allBonePaths, 
-                    skeleton: skeleton)
-        
-        // Convert bone paths to joint paths for IK solver compatibility
-        var allJointPaths: [[Joint]] = []
-        for bonePath in allBonePaths {
-            if !bonePath.isEmpty {
-                var jointPath: [Joint] = [targetJoint]
-                var currentJoint = targetJoint
-                
-                for bone in bonePath {
-                    let nextJoint = (bone.startJoint === currentJoint) ? bone.endJoint : bone.startJoint
-                    jointPath.append(nextJoint)
-                    currentJoint = nextJoint
-                }
-                allJointPaths.append(jointPath)
-            }
-        }
-        let pathCollection = allJointPaths
-    
-    // Step 2: Separate paths into those with fixed joints and those without
-    let pathsWithFixedJoints = pathCollection.filter { path in
-        path.count > 1 && path.last!.isFixed
-    }
-    let pathsWithoutFixedJoints = pathCollection.filter { path in
-        path.count > 1 && !path.last!.isFixed
-    }
-    
-    // Step 3: First, move the target joint to the target position
-    targetJoint.position = targetPosition
-    
-    // Step 4: Solve IK for paths with fixed joints first
-    for path in pathsWithFixedJoints {
-        IKSolver.solveIK(chain: path, target: targetPosition, skeleton: skeleton)
-    }
-    
-    // Step 5: Solve IK for remaining paths using the updated skeleton state
-    for path in pathsWithoutFixedJoints {
-        // For paths without fixed joints, we solve from the start joint to the end
-        // The target for these paths is determined by maintaining bone lengths
-        solvePathWithoutFixedJoint(path: path, skeleton: skeleton)
-    }
-    
-    // Step 6: All joints are now tracked via ikBonePaths
-    var allJoints = Set<Joint>()
-    for path in pathCollection {
-        for joint in path {
-            allJoints.insert(joint)
-        }
-    }
-
-    
-    // Step 7: Resolve any bone length violations
-    resolveConnectedChains(skeleton: skeleton, modifiedJoints: allJoints)
-    
-    needsDisplay = true
-}
-
-    private func solvePathWithoutFixedJoint(path: [Joint], skeleton: Skeleton) {
+    /// Propagate movement along a path, preserving bone lengths and not moving fixed joints
+    private func propagateMovementAlongPath(path: [Joint], startPosition: simd_float2, skeleton: Skeleton) {
         guard path.count > 1 else { return }
-        
-        // Start from the first joint in the path
-        var currentJoint = path[0]
-        
-        for i in 1..<path.count {
-            let nextJoint = path[i]
-            
-            // Find the bone connecting these joints
-            if let bone = skeleton.bones.first(where: { bone in
-                (bone.startJoint === currentJoint && bone.endJoint === nextJoint) ||
-                (bone.startJoint === nextJoint && bone.endJoint === currentJoint)
-            }) {
-                // Calculate direction from current to next joint
-                let direction = simd_normalize(nextJoint.position - currentJoint.position)
-                
-                // Calculate next joint position maintaining bone length
-                let nextPosition = currentJoint.position + direction * bone.originalLength
-                
-                // Update next joint position
-                nextJoint.position = nextPosition
-            }
-            
-            // Move to next joint in path
-            currentJoint = nextJoint
-        }
-    }
-    
-    /// Collect all paths from a starting joint recursively
-    private func collectAllPathsFrom(startJoint: Joint, skeleton: Skeleton) -> [[Joint]] {
-        var allPaths: [[Joint]] = []
-        var globalVisited = Set<Joint>()
-        
-        exploreAllPathsFrom(joint: startJoint,
-                           currentPath: [startJoint],
-                           visited: Set([startJoint]),
-                           globalVisited: &globalVisited,
-                           allPaths: &allPaths,
-                           skeleton: skeleton)
-        
-        return allPaths
-    }
-    
-    /// Recursively explore all paths from a joint
-    private func exploreAllPathsFrom(joint: Joint,
-                                   currentPath: [Joint],
-                                   visited: Set<Joint>,
-                                   globalVisited: inout Set<Joint>,
-                                   allPaths: inout [[Joint]],
-                                   skeleton: Skeleton) {
-        
-        let connectedJoints = findAllConnectedJoints(to: joint, in: skeleton, excluding: visited)
-        
-        if connectedJoints.isEmpty {
-            // This is an endpoint - add the current path if it has more than one joint
-            if currentPath.count > 1 {
-                allPaths.append(currentPath)
-                for joint in currentPath {
-                    globalVisited.insert(joint)
-                }
-            }
-            return
-        }
-        
-        // Explore each connected joint
-        for connectedJoint in connectedJoints {
-            var newPath = currentPath
-            newPath.append(connectedJoint)
-            
-            var newVisited = visited
-            newVisited.insert(connectedJoint)
-            
-            // If this joint is fixed, end the path here
-            if connectedJoint.isFixed {
-                if newPath.count > 1 {
-                    allPaths.append(newPath)
-                    for joint in newPath {
-                        globalVisited.insert(joint)
-                    }
-                }
-            } else {
-                // Continue exploring from this joint
-                exploreAllPathsFrom(joint: connectedJoint,
-                                  currentPath: newPath,
-                                  visited: newVisited,
-                                  globalVisited: &globalVisited,
-                                  allPaths: &allPaths,
-                                  skeleton: skeleton)
-            }
-        }
-    }
-    
-    /// Solve a path that doesn't end with a fixed joint
-    private func solvePathWithoutFixedJoint(path: [Joint], startPosition: simd_float2, skeleton: Skeleton) {
-        guard path.count > 1 else { return }
-        
-        // For paths without fixed joints, we propagate positions from start to end
-        // maintaining bone lengths
         var currentPosition = startPosition
-        
-        for i in 0..<(path.count - 1) {
-            let currentJoint = path[i]
-            let nextJoint = path[i + 1]
-            
+        path[0].position = currentPosition
+        for i in 1..<path.count {
+            let prevJoint = path[i-1]
+            let joint = path[i]
             // Find the bone connecting these joints
-            if let bone = skeleton.bones.first(where: { bone in
-                (bone.startJoint === currentJoint && bone.endJoint === nextJoint) ||
-                (bone.startJoint === nextJoint && bone.endJoint === currentJoint)
-            }) {
-                // Calculate direction from current to next joint
-                let direction = simd_normalize(nextJoint.position - currentJoint.position)
-                
-                // Update current joint position
-                currentJoint.position = currentPosition
-                
-                // Calculate next joint position maintaining bone length
+            if let bone = skeleton.bones.first(where: { b in (b.startJoint === prevJoint && b.endJoint === joint) || (b.startJoint === joint && b.endJoint === prevJoint) }) {
+                let direction = simd_normalize(joint.position - prevJoint.position)
+                // If this joint is fixed, stop propagation
+                if joint.isFixed { break }
                 currentPosition = currentPosition + direction * bone.originalLength
-                
-                // Update next joint position
-                nextJoint.position = currentPosition
+                joint.position = currentPosition
             }
         }
+    }
+
+    /// Solve IK using a global iterative constraint solver (matches Python reference)
+    private func solveIKGlobalConstraints(movedJoint: Joint, targetPosition: simd_float2, maxIterations: Int = 10) {
+        guard let skeleton = skeleton else { return }
+        // Step 1: Move the dragged joint to the target position
+        movedJoint.position = targetPosition
+        
+        // Step 2: Iteratively enforce all bone length constraints
+        let tolerance: Float = 0.1
+        for _ in 0..<maxIterations {
+            var anyMoved = false
+            for bone in skeleton.bones {
+                let j1 = bone.startJoint
+                let j2 = bone.endJoint
+                let currentLength = simd_distance(j1.position, j2.position)
+                let targetLength = bone.originalLength
+                if abs(currentLength - targetLength) < tolerance { continue }
+                let dir = j2.position - j1.position
+                if simd_length(dir) == 0 { continue }
+                let normDir = simd_normalize(dir)
+                let lengthError = currentLength - targetLength
+                let j1CanMove = !j1.isFixed
+                let j2CanMove = !j2.isFixed
+                if j1CanMove && j2CanMove {
+                    // Both can move: split correction
+                    let correction = lengthError * 0.5
+                    j1.position += normDir * correction
+                    j2.position -= normDir * correction
+                    anyMoved = true
+                } else if j1CanMove {
+                    j1.position += normDir * lengthError
+                    anyMoved = true
+                } else if j2CanMove {
+                    j2.position -= normDir * lengthError
+                    anyMoved = true
+                }
+            }
+            if !anyMoved { break }
+        }
+        needsDisplay = true
     }
     
     private func exploreChainFrom(joint: Joint, 
