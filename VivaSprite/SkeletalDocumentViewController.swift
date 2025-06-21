@@ -631,17 +631,10 @@ class SkeletalDocumentViewController: NSViewController {
             let jsonData = try JSONEncoder().encode(skeletonData)
             try jsonData.write(to: url)
             
-            let alert = NSAlert()
-            alert.messageText = "Skeleton Exported"
-            alert.informativeText = "The skeleton has been successfully exported to \(url.lastPathComponent)"
-            alert.alertStyle = .informational
-            alert.runModal()
+            // Success - no alert dialog
         } catch {
-            let alert = NSAlert()
-            alert.messageText = "Export Failed"
-            alert.informativeText = "Failed to export skeleton: \(error.localizedDescription)"
-            alert.alertStyle = .critical
-            alert.runModal()
+            // Export failed - no alert dialog
+            print("Export failed: \(error.localizedDescription)")
         }
     }
     
@@ -710,17 +703,10 @@ class SkeletalDocumentViewController: NSViewController {
             updatePropertiesPanel()
             skeletalEditorView.needsDisplay = true
             
-            let alert = NSAlert()
-            alert.messageText = "Skeleton Imported"
-            alert.informativeText = "The skeleton has been successfully imported from \(url.lastPathComponent)"
-            alert.alertStyle = .informational
-            alert.runModal()
+            // Success - no alert dialog
         } catch {
-            let alert = NSAlert()
-            alert.messageText = "Import Failed"
-            alert.informativeText = "Failed to import skeleton: \(error.localizedDescription)"
-            alert.alertStyle = .critical
-            alert.runModal()
+            // Import failed - no alert dialog
+            print("Import failed: \(error.localizedDescription)")
         }
     }
 }

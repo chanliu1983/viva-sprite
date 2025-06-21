@@ -18,6 +18,9 @@ class Joint: Hashable {
     var rotation: Float = 0.0
     var isFixed: Bool = false
     
+    // Connected bones for efficient traversal
+    var connectedBones: [Bone] = []
+    
     // IK constraints
     var minAngle: Float = -Float.pi
     var maxAngle: Float = Float.pi
@@ -39,6 +42,39 @@ class Joint: Hashable {
         return rotation
     }
     
+    /// Get all joints connected to this joint via bones
+    func getConnectedJoints(excluding visited: Set<Joint> = []) -> [Joint] {
+        var connectedJoints: [Joint] = []
+        
+        for bone in connectedBones {
+            let otherJoint = (bone.startJoint === self) ? bone.endJoint : bone.startJoint
+            if !visited.contains(otherJoint) && !otherJoint.isFixed {
+                connectedJoints.append(otherJoint)
+            }
+        }
+        
+        return connectedJoints
+    }
+    
+    /// Get all joints connected to this joint via bones (including fixed joints)
+    func getAllConnectedJoints(excluding visited: Set<Joint> = []) -> [Joint] {
+        var connectedJoints: [Joint] = []
+        
+        for bone in connectedBones {
+            let otherJoint = (bone.startJoint === self) ? bone.endJoint : bone.startJoint
+            if !visited.contains(otherJoint) {
+                connectedJoints.append(otherJoint)
+            }
+        }
+        
+        return connectedJoints
+    }
+    
+    /// Get all bones connected to this joint
+    func getConnectedBones() -> [Bone] {
+        return connectedBones
+    }
+    
     // MARK: - Hashable Conformance
     
     func hash(into hasher: inout Hasher) {
@@ -51,7 +87,7 @@ class Joint: Hashable {
 }
 
 /// Represents a bone connecting two joints
-class Bone {
+class Bone: Hashable {
     let id: UUID
     var name: String
     let startJoint: Joint
@@ -87,6 +123,25 @@ class Bone {
     var angle: Float {
         let diff = endJoint.position - startJoint.position
         return atan2(diff.y, diff.x)
+    }
+    
+    func connectedJoint(to joint: Joint) -> Joint? {
+        if joint.id == startJoint.id {
+            return endJoint
+        } else if joint.id == endJoint.id {
+            return startJoint
+        }
+        return nil
+    }
+    
+    // MARK: - Hashable Conformance
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: Bone, rhs: Bone) -> Bool {
+        return lhs.id == rhs.id
     }
 }
 
@@ -131,8 +186,14 @@ class Skeleton {
     }
     
     func removeJoint(_ joint: Joint) {
-        // Remove associated bones
-        bones.removeAll { $0.startJoint.id == joint.id || $0.endJoint.id == joint.id }
+        // Remove associated bones and update connections
+        let bonesToRemove = bones.filter { $0.startJoint.id == joint.id || $0.endJoint.id == joint.id }
+        for bone in bonesToRemove {
+            removeBone(bone)
+        }
+        
+        // Clear the joint's connected bones
+        joint.connectedBones.removeAll()
         
         // Remove from joints array
         joints.removeAll { $0.id == joint.id }
@@ -145,10 +206,22 @@ class Skeleton {
     
     func addBone(_ bone: Bone) {
         bones.append(bone)
+        
+        // Update joint connections
+        if !bone.startJoint.connectedBones.contains(where: { $0.id == bone.id }) {
+            bone.startJoint.connectedBones.append(bone)
+        }
+        if !bone.endJoint.connectedBones.contains(where: { $0.id == bone.id }) {
+            bone.endJoint.connectedBones.append(bone)
+        }
     }
     
     func removeBone(_ bone: Bone) {
         bones.removeAll { $0.id == bone.id }
+        
+        // Update joint connections
+        bone.startJoint.connectedBones.removeAll { $0.id == bone.id }
+        bone.endJoint.connectedBones.removeAll { $0.id == bone.id }
     }
     
     func addPixelArt(_ pixelArt: PixelArtData) {
