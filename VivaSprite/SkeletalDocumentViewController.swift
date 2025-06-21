@@ -451,6 +451,12 @@ class SkeletalDocumentViewController: NSViewController {
                 let skeletonData = try JSONDecoder().decode(SkeletonData.self, from: data)
                 
                 if let newSkeleton = Skeleton(from: skeletonData) {
+                    // Preserve current canvas size when importing
+                    let currentCanvasWidth = self.skeleton?.canvasWidth ?? 1024
+                    let currentCanvasHeight = self.skeleton?.canvasHeight ?? 1024
+                    newSkeleton.canvasWidth = currentCanvasWidth
+                    newSkeleton.canvasHeight = currentCanvasHeight
+                    
                     self.skeleton = newSkeleton
                     self.skeletalEditorView.skeleton = newSkeleton
                     self.documentName = newSkeleton.name

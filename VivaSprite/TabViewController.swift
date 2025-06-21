@@ -22,6 +22,11 @@ class TabViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupTabView()
+        
+        // Add right-click menu to tab view
+        let menu = createTabContextMenu()
+        tabView.menu = menu
+        
         createNewDocument(type: .skeletal) // Create initial document
     }
     
@@ -262,5 +267,50 @@ extension TabViewController: NSTabViewDelegate {
     
     func tabView(_ tabView: NSTabView, shouldSelect tabViewItem: NSTabViewItem?) -> Bool {
         return true
+    }
+}
+
+// MARK: - Context Menu
+extension TabViewController {
+    
+    private func createTabContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        
+        let closeTabItem = NSMenuItem(title: "Close Tab", action: #selector(closeTabFromContextMenu(_:)), keyEquivalent: "")
+        closeTabItem.target = self
+        menu.addItem(closeTabItem)
+        
+        return menu
+    }
+    
+    @objc private func closeTabFromContextMenu(_ sender: NSMenuItem) {
+        // Get the tab view item that was right-clicked
+        if let event = NSApp.currentEvent,
+           let tabViewItem = getTabViewItemAt(event.locationInWindow) {
+            // Get the view controller associated with this tab
+            if let documentVC = tabViewItem.viewController {
+                closeDocument(documentVC)
+            }
+        }
+    }
+    
+    private func getTabViewItemAt(_ locationInWindow: NSPoint) -> NSTabViewItem? {
+        // Convert window location to view coordinates
+        let point = tabView.convert(locationInWindow, from: nil)
+        
+        // Check if the point is within any tab's frame
+        for index in 0..<tabView.numberOfTabViewItems {
+            let tabViewItem = tabView.tabViewItem(at: index)
+            
+            // Get the tab's frame (this is an approximation since NSTabView doesn't provide direct access to tab frames)
+            // We're assuming tabs are at the top and have a standard height
+            let tabRect = NSRect(x: 0, y: tabView.frame.height - 22, width: tabView.frame.width, height: 22)
+            
+            if tabRect.contains(point) {
+                return tabViewItem
+            }
+        }
+        
+        return tabView.selectedTabViewItem
     }
 }

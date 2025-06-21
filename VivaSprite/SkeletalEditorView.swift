@@ -480,8 +480,8 @@ class SkeletalEditorView: NSView {
             let totalRotation = boneAngle + bone.pixelArtRotation
             
             // Calculate pixel art position based on anchor point
-            let pixelArtWidth = CGFloat(pixelArt.width * 2) * CGFloat(bone.pixelArtScale)
-            let pixelArtHeight = CGFloat(pixelArt.height * 2) * CGFloat(bone.pixelArtScale)
+            let pixelArtWidth = CGFloat(pixelArt.width) * CGFloat(bone.pixelArtScale)
+            let pixelArtHeight = CGFloat(pixelArt.height) * CGFloat(bone.pixelArtScale)
             
             let anchorOffset = simd_float2(
                 (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
@@ -497,7 +497,7 @@ class SkeletalEditorView: NSView {
             context.rotate(by: CGFloat(totalRotation))
             
             // Calculate pixel size for rendering
-            let pixelSize = CGFloat(2) * CGFloat(bone.pixelArtScale) // 2x2 pixels for visibility, scaled
+            let pixelSize = CGFloat(1) * CGFloat(bone.pixelArtScale) // 1x1 pixels, scaled
             let totalWidth = CGFloat(pixelArt.width) * pixelSize
             let totalHeight = CGFloat(pixelArt.height) * pixelSize
             
@@ -1050,59 +1050,69 @@ class SkeletalEditorView: NSView {
     
     func exportAsImage() -> NSImage? {
         guard let skeleton = skeleton else { return nil }
-        
-        // Use canvas size for export
         let canvasSize = CGSize(width: skeleton.canvasWidth, height: skeleton.canvasHeight)
-        
-        // Sort bones by order for consistent rendering
         let sortedBones = skeleton.bones.sorted { $0.pixelArtOrder < $1.pixelArtOrder }
-        
-        // Create an NSImage with canvas size
+
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(canvasSize.width),
+            pixelsHigh: Int(canvasSize.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .calibratedRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            return nil
+        }
+
         let image = NSImage(size: canvasSize)
+        image.addRepresentation(rep)
+
         image.lockFocus()
-        
         guard let context = NSGraphicsContext.current?.cgContext else {
             image.unlockFocus()
             return nil
         }
-        
+        // Flip the context vertically so (0,0) is bottom-left
+        context.saveGState()
+
         // Clear background to transparent
-        context.clear(CGRect(origin: .zero, size: canvasSize))
-        
-        // Set coordinate system origin to center of canvas
-        context.translateBy(x: canvasSize.width / 2, y: canvasSize.height / 2)
-        
+        context.clear(CGRect(x: -canvasSize.width/2, y: -canvasSize.height/2, width: canvasSize.width, height: canvasSize.height))
+
         // Draw each pixel art attachment in order
         for bone in sortedBones {
             guard let pixelArt = bone.pixelArt else { continue }
-            
+
             let startPos = bone.startJoint.worldPosition()
             let endPos = bone.endJoint.worldPosition()
             let boneCenter = (startPos + endPos) / 2
             let boneAngle = bone.angle
             let totalRotation = boneAngle + bone.pixelArtRotation
-            
-            // Apply pixelArtScale to the pixel art dimensions
-            let pixelArtWidth = CGFloat(pixelArt.width * 2) * CGFloat(bone.pixelArtScale)
-            let pixelArtHeight = CGFloat(pixelArt.height * 2) * CGFloat(bone.pixelArtScale)
-            
+
+            let pixelArtWidth = CGFloat(pixelArt.width) * CGFloat(bone.pixelArtScale)
+            let pixelArtHeight = CGFloat(pixelArt.height) * CGFloat(bone.pixelArtScale)
+
             let anchorOffset = simd_float2(
                 (pixelArt.anchorPoint.x - 0.5) * Float(pixelArtWidth),
                 (pixelArt.anchorPoint.y - 0.5) * Float(pixelArtHeight)
             )
-            
+
             let rotatedOffset = rotateVector(anchorOffset, by: totalRotation)
+
             let pixelArtPos = boneCenter - rotatedOffset
-            
+
             context.saveGState()
+
             context.translateBy(x: CGFloat(pixelArtPos.x), y: CGFloat(pixelArtPos.y))
             context.rotate(by: CGFloat(totalRotation))
-            
-            // Apply pixelArtScale to the pixel size
-            let pixelSize = CGFloat(2) * CGFloat(bone.pixelArtScale)
+
+            let pixelSize = CGFloat(1) * CGFloat(bone.pixelArtScale)
             let totalWidth = CGFloat(pixelArt.width) * pixelSize
             let totalHeight = CGFloat(pixelArt.height) * pixelSize
-            
+
             for row in 0..<pixelArt.height {
                 for col in 0..<pixelArt.width {
                     if let color = pixelArt.pixels[row][col] {
@@ -1117,10 +1127,9 @@ class SkeletalEditorView: NSView {
                     }
                 }
             }
-            
             context.restoreGState()
         }
-        
+        context.restoreGState()
         image.unlockFocus()
         return image
     }
